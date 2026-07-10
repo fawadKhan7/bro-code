@@ -1,0 +1,14 @@
+{
+  "name": "@duo/shared",
+  "version": "0.1.0",
+  "description": "Duo shared library: domain types, presets, project scanner, contract disk mirror, resume briefs",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc -b"
+  }
+}

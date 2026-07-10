@@ -1,0 +1,1 @@
+{"version":3,"file":"mcpTransport.d.ts","sourceRoot":"","sources":["../src/mcpTransport.ts"],"names":[],"mappings":"AAAA;;;;GAIG;AACH,OAAO,KAAK,EAAE,eAAe,EAAE,cAAc,EAAE,MAAM,MAAM,CAAC;AAG5D,OAAO,KAAK,EAAE,YAAY,EAAE,MAAM,YAAY,CAAC;AAsB/C,wBAAsB,gBAAgB,CACpC,KAAK,EAAE,YAAY,EACnB,GAAG,EAAE,eAAe,EACpB,GAAG,EAAE,cAAc,GAClB,OAAO,CAAC,IAAI,CAAC,CAqCf"}

@@ -1,0 +1,20 @@
+{
+  "name": "@duo/hub",
+  "version": "0.1.0",
+  "description": "Duo hub: standalone coordination server — MCP (streamable HTTP + legacy SSE), REST control API, SSE events, session state",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "duo-hub": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@duo/shared": "^0.1.0",
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "zod": "^3.24.0"
+  }
+}

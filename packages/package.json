@@ -1,0 +1,21 @@
+{
+  "name": "@duo/monorepo",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Duo — multi-agent AI collaboration hub (workspace root)",
+  "workspaces": [
+    "shared",
+    "hub"
+  ],
+  "scripts": {
+    "build": "tsc -b shared hub",
+    "clean": "tsc -b shared hub --clean",
+    "test": "npm run build && vitest run --root hub",
+    "test:watch": "vitest --root hub"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.6.0",
+    "vitest": "^3.0.0"
+  }
+}
