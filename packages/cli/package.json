@@ -1,0 +1,19 @@
+{
+  "name": "@duo/cli",
+  "version": "0.1.0",
+  "description": "duo — the single CLI for multi-agent AI collaboration",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "duo": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "@duo/shared": "^0.1.0",
+    "@duo/hub": "^0.1.0",
+    "@duo/adapters": "^0.1.0"
+  }
+}

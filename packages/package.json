@@ -5,12 +5,14 @@
   "description": "Duo — multi-agent AI collaboration hub (workspace root)",
   "workspaces": [
     "shared",
-    "hub"
+    "hub",
+    "adapters",
+    "cli"
   ],
   "scripts": {
-    "build": "tsc -b shared hub",
-    "clean": "tsc -b shared hub --clean",
-    "test": "npm run build && vitest run --root hub",
+    "build": "tsc -b shared hub adapters cli",
+    "clean": "tsc -b shared hub adapters cli --clean",
+    "test": "npm run build && vitest run --root shared && vitest run --root adapters && vitest run --root hub && vitest run --root cli",
     "test:watch": "vitest --root hub"
   },
   "devDependencies": {

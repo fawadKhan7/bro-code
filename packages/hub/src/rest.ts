@@ -118,6 +118,19 @@ export class RestApi {
       return true;
     }
 
+    if (method === "POST" && urlPath === "/api/log") {
+      // Control-plane log ingest: adapters pipe agent stdout here so hub logs stay
+      // the single source of truth (CLI watch + dashboard both read them).
+      const body = await readJson(req);
+      const result = this.store.postUpdate(
+        String(body.agent_id ?? "system"),
+        String(body.message ?? ""),
+        Array.isArray(body.refs) ? body.refs.map(String) : undefined
+      );
+      json(res, "error" in result ? 409 : 200, result);
+      return true;
+    }
+
     if (method === "POST" && urlPath === "/api/agent/release") {
       const body = await readJson(req);
       json(res, 200, this.store.releaseAgent(String(body.agent_id ?? "")));

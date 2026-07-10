@@ -1,0 +1,17 @@
+{
+  "name": "@duo/adapters",
+  "version": "0.1.0",
+  "description": "Duo AI adapters: per-runner launch/config isolation (claude-code, cursor-cli, cursor-ide)",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "@duo/shared": "^0.1.0"
+  }
+}

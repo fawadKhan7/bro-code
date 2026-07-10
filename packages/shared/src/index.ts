@@ -4,3 +4,5 @@ export * from "./contractDisk.js";
 export * from "./presets.js";
 export * from "./scan.js";
 export * from "./resumeBrief.js";
+export * from "./prompts/index.js";
+export * from "./config.js";

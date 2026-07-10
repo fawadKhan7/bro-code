@@ -2,3 +2,9 @@ node_modules/
 debug.log
 .DS_Store
 *.log
+dist/
+out/
+.vite/
+coverage/
+*vsix
+.env*
