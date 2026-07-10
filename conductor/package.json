@@ -1,0 +1,12 @@
+{
+  "name": "conductor-workspace",
+  "private": true,
+  "workspaces": ["shared", "mcp-server", "cli"],
+  "scripts": {
+    "build": "npm run build -w @conductor/shared && npm run build -w @conductor/mcp-server && npm run build -w @conductor/cli",
+    "conductor": "node cli/dist/index.js"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0"
+  }
+}

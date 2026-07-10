@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Duo Agent — Task UI wireframe (mockup)</title>
+  <style>
+    :root {
+      --bg: #1e1e1e;
+      --panel: #252526;
+      --border: #3c3c3c;
+      --text: #cccccc;
+      --muted: #858585;
+      --accent: #007fd4;
+      --accent-hover: #1a8cff;
+      --chip: #37373d;
+      --ok: #89d185;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 16px;
+      line-height: 1.45;
+    }
+    .banner {
+      background: #264f78;
+      color: #fff;
+      padding: 10px 14px;
+      border-radius: 6px;
+      margin-bottom: 16px;
+      font-size: 13px;
+    }
+    .shell {
+      max-width: 420px;
+      margin: 0 auto;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 8px 32px rgba(0,0,0,.35);
+    }
+    .shell-header {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+      font-weight: 600;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); margin-right: 8px; display: inline-block; }
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+    }
+    .tab {
+      flex: 1;
+      padding: 10px;
+      text-align: center;
+      font-size: 12px;
+      cursor: pointer;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+    }
+    .tab.active {
+      color: var(--text);
+      border-bottom: 2px solid var(--accent);
+      margin-bottom: -1px;
+    }
+    .body { padding: 14px; }
+    label {
+      display: block;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+      margin-bottom: 6px;
+      margin-top: 12px;
+    }
+    label:first-of-type { margin-top: 0; }
+    textarea {
+      width: 100%;
+      min-height: 100px;
+      resize: vertical;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text);
+      padding: 10px;
+      font-size: 13px;
+      font-family: inherit;
+    }
+    textarea::placeholder { color: var(--muted); }
+    .row-btns {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    button.secondary {
+      background: var(--chip);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 10px;
+      border-radius: 4px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    button.secondary:hover { border-color: var(--accent); }
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+      min-height: 28px;
+      padding: 8px;
+      background: var(--bg);
+      border: 1px dashed var(--border);
+      border-radius: 4px;
+    }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--chip);
+      border: 1px solid var(--border);
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-family: ui-monospace, monospace;
+    }
+    .chip button {
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      padding: 0;
+      font-size: 14px;
+      line-height: 1;
+    }
+    .mode-row {
+      display: flex;
+      gap: 16px;
+      margin-top: 12px;
+      font-size: 12px;
+    }
+    .mode-row label { margin: 0; text-transform: none; display: flex; align-items: center; gap: 6px; cursor: pointer; }
+    .primary {
+      width: 100%;
+      margin-top: 16px;
+      padding: 10px;
+      background: var(--accent);
+      border: none;
+      border-radius: 4px;
+      color: #fff;
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .primary:hover { background: var(--accent-hover); }
+    .footnote {
+      margin-top: 20px;
+      font-size: 12px;
+      color: var(--muted);
+      max-width: 420px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .footnote code { background: var(--chip); padding: 1px 6px; border-radius: 3px; }
+    ul { padding-left: 18px; }
+    li { margin: 6px 0; }
+  </style>
+</head>
+<body>
+  <div class="banner">
+    <strong>Wireframe only</strong> — open this file in a browser. It is not connected to Duo Agent.
+    It shows how <em>in-extension</em> task entry + file scope could look instead of typing <code>task A …</code> in the session terminal.
+  </div>
+
+  <div class="shell">
+    <div class="shell-header">
+      <span><span class="dot"></span>Duo Agent</span>
+      <span style="font-size:11px;color:var(--muted);">Server · 3131</span>
+    </div>
+    <div class="tabs">
+      <button type="button" class="tab active">Agent A — BACKEND</button>
+      <button type="button" class="tab">Agent B — FRONTEND</button>
+    </div>
+    <div class="body">
+      <label for="task">Task instructions</label>
+      <textarea id="task" placeholder="Example: Implement auth refresh endpoint; coordinate API shape with Agent B via post_contract."></textarea>
+
+      <label>Scope — files &amp; folders (like chat references, but picked here)</label>
+      <div class="chips" id="chips">
+        <span class="chip">src/api/auth.ts <button type="button" title="Remove">×</button></span>
+        <span class="chip">src/middleware/session.ts <button type="button">×</button></span>
+        <span class="chip" style="opacity:.6;border-style:dashed;">+ add more…</span>
+      </div>
+      <div class="row-btns">
+        <button type="button" class="secondary">Pick files…</button>
+        <button type="button" class="secondary">Add open editors</button>
+        <button type="button" class="secondary">Add Explorer selection</button>
+      </div>
+
+      <div class="mode-row">
+        <label><input type="radio" name="mode" checked /> Auto-run</label>
+        <label><input type="radio" name="mode" /> Checkpoint</label>
+      </div>
+
+      <button type="button" class="primary">Save task for Agent A → server + TASKS.md</button>
+    </div>
+  </div>
+
+  <div class="footnote">
+    <p><strong>What this replaces</strong></p>
+    <ul>
+      <li>Today: long one-liner in the session terminal — <code>task A …</code></li>
+      <li>Here: multi-line task + explicit paths the extension appends to the same string (or sends as extra fields later).</li>
+    </ul>
+    <p><strong>Why not literal <code>@file</code></strong></p>
+    <p>Cursor’s <code>@</code> picker lives in <strong>Agent chat</strong>, not inside a webview. The extension can still give you <strong>Pick files / open editors / selection</strong> so the task body lists real paths — same outcome for the agents.</p>
+  </div>
+</body>
+</html>

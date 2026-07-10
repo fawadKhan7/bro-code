@@ -1,0 +1,10 @@
+import type { AgentId, ConductorSession, ContractUpdate } from "./types";
+export declare function emptySession(): ConductorSession;
+export declare function loadSession(): ConductorSession;
+export declare function saveSession(session: ConductorSession): void;
+export declare function updateSession(mutator: (s: ConductorSession) => void): ConductorSession;
+export declare function appendUpdate(session: ConductorSession, input: Omit<ContractUpdate, "version" | "timestamp">): ContractUpdate;
+export declare function getContractDelta(session: ConductorSession, sinceVersion: number): string;
+export declare function applyFeedback(session: ConductorSession, feedback: string | null): void;
+export declare function setCheckpoint(session: ConductorSession, agentId: AgentId, summary: string, nextStep: string): void;
+export declare function peerId(agentId: AgentId): AgentId;
