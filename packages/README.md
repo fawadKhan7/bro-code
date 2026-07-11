@@ -13,17 +13,42 @@ orchestrator never calls an LLM.
 |---|---|
 | 1 — Standalone hub + protocol (fake-agent tested) | ✅ done |
 | 2 — CLI + Claude Code adapter (claude↔claude) | ✅ done |
-| 3 — Cursor adapters (mixed sessions) | ⏳ next |
-| 4 — Dashboard + npm packaging | ⏳ |
+| 3 — Cursor adapters (mixed sessions) | ✅ done |
+| 4 — Dashboard + npm packaging | ◐ dashboard done; publish configured, not released |
+
+## Dashboard
+
+The hub serves a live dashboard at **`http://localhost:3131`** — session header, task board,
+contracts, activity stream, and review cards for plan approval (with per-item assignment) and
+checkpoints. It's a pure client of the same REST + SSE endpoints the CLI uses (zero private
+endpoints), auto-reconnects on hub restart/sleep, and every action has a CLI equivalent. Open it
+in any browser while a session runs.
+
+More docs: [TROUBLESHOOTING.md](TROUBLESHOOTING.md) · [MIGRATION.md](MIGRATION.md) ·
+[PUBLISHING.md](PUBLISHING.md) · [REAL-RUNS.md](REAL-RUNS.md)
 
 ## Packages
 
 ```
 shared/     types, presets, project scanner, contract disk mirror, resume briefs, prompt builder, config
 hub/        standalone coordination server — MCP (streamable HTTP + legacy SSE), REST, SSE events, state
-adapters/   per-runner launch/config isolation (claude-code today; cursor-cli/ide in phase 3)
+adapters/   per-runner launch/config isolation (claude-code, cursor-cli, cursor-ide)
 cli/        the `duo` command
 ```
+
+## Runners
+
+Each agent slot is backed by a **runner**, chosen per slot at `duo init` — mix them freely.
+
+| Runner | How the agent starts | When to use |
+|---|---|---|
+| `claude-code` | `claude -p` spawned automatically | Most reliable headless CLI |
+| `cursor-cli` | `cursor-agent -p --force --approve-mcps --trust` spawned automatically | Fully automatic Cursor |
+| `cursor-ide` | Kickoff copied to your clipboard — you paste into Cursor's agent chat once | GUI preference, or if `cursor-agent` misbehaves |
+
+If `cursor-agent`'s MCP fails to attach (a known print-mode quirk — see
+`adapters/src/cursor-spike-notes.md`), `duo doctor` catches it before the session and you switch
+that one slot to `cursor-ide` in config — nothing else changes.
 
 ## Install (dev)
 
@@ -60,6 +85,23 @@ duo stop
 For a task whose split is obvious, skip planning: `duo start "fix the login typo" --no-plan`.
 For milestone approvals, run in checkpoint mode: `duo start "…" --mode checkpoint` and resolve
 pauses with `duo approve --agent B` / `duo feedback "use httpOnly cookies" --agent B`.
+
+## Quickstart — mixed session (cursor ↔ claude)
+
+Runner choice is per slot, so cursor↔claude, claude↔cursor, and cursor↔cursor are just config.
+At `duo init`, set Agent A's runner to `cursor-cli` (or `cursor-ide`) and Agent B's to
+`claude-code` — then the flow is identical:
+
+```bash
+duo doctor                          # confirm both runners + MCP attachment before you start
+duo start "Add Google OAuth login"  # cursor-cli launches automatically; a cursor-ide slot
+                                    #   copies its kickoff to your clipboard to paste once
+duo plan && duo approve --assign t5=B
+duo status --watch
+```
+
+The hub is runner-agnostic — it sees every agent as an anonymous MCP client, so coordination,
+contracts, checkpoints, and the task board behave the same in any combination.
 
 ## Commands
 

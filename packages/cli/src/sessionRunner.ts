@@ -18,6 +18,8 @@ export interface RunOptions {
   registrationTimeoutMs?: number;
   /** Max automatic resume attempts per agent on premature exit. */
   maxResumes?: number;
+  /** Auto-approve trivial plans (≤2 owned items). Default true. */
+  autoApproveTrivial?: boolean;
   /** Called with (agentId, line) for every piped output/status line — CLI prints these. */
   onLine?: (agentId: string, line: string) => void;
 }
@@ -115,7 +117,7 @@ export class SessionRun {
       mode: this.config.mode,
       plan: this.opts.plan,
       presetBoard: this.opts.plan ? undefined : presetBoard(this.config, this.opts.goal),
-      autoApproveTrivial: true,
+      autoApproveTrivial: this.opts.autoApproveTrivial ?? true,
     });
     if (createResult.ok !== true) {
       throw new Error(`Could not create session: ${String(createResult.error ?? "unknown")}`);
@@ -139,7 +141,10 @@ export class SessionRun {
   }
 
   private async gateOnRegistration(): Promise<void> {
-    const timeout = this.opts.registrationTimeoutMs ?? 30_000;
+    // Manual slots (cursor-ide) need time for a human to paste — extend the deadline generously.
+    const hasManual = [...this.agents.values()].some((a) => a.handle.kind === "manual");
+    const base = this.opts.registrationTimeoutMs ?? 30_000;
+    const timeout = hasManual ? Math.max(base, 300_000) : base;
     const deadline = Date.now() + timeout;
     for (;;) {
       const status = (await this.hub.status()) as {

@@ -70,6 +70,90 @@ export function summarizeClaudeStreamLine(line: string): string | null {
   return null;
 }
 
+/** Summarize one line of cursor-agent stream-json into a short human log line, or null.
+ *  Defensive: cursor's schema differs from Claude's and may shift between versions, so we probe
+ *  a few common shapes and skip anything unrecognized (piping is best-effort — the real signal is
+ *  the agent's MCP tool calls, which show up in hub logs regardless).
+ */
+export function summarizeCursorStreamLine(line: string): string | null {
+  const trimmed = line.trim();
+  if (!trimmed) return null;
+  let evt: Record<string, unknown>;
+  try {
+    evt = JSON.parse(trimmed) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+
+  const type = String(evt.type ?? "");
+  // Tool-call shapes.
+  if (type.includes("tool")) {
+    const name = evt.name ?? (evt.tool as Record<string, unknown> | undefined)?.name ?? (evt.toolName as unknown);
+    if (name) return `→ ${String(name)}`;
+  }
+  // Assistant message with content blocks (Claude-like).
+  const message = evt.message as { content?: Array<Record<string, unknown>> } | undefined;
+  const blocks = message?.content;
+  if (Array.isArray(blocks)) {
+    for (const block of blocks) {
+      if (String(block.type ?? "").includes("tool") && block.name) return `→ ${String(block.name)}`;
+      if (block.type === "text" && typeof block.text === "string" && block.text.trim()) {
+        return block.text.trim().replace(/\s+/g, " ").slice(0, 200);
+      }
+    }
+  }
+  // Flat text delta / assistant text.
+  if (typeof evt.text === "string" && evt.text.trim()) {
+    return evt.text.trim().replace(/\s+/g, " ").slice(0, 200);
+  }
+  if (type === "result") return `[session ${String(evt.subtype ?? "ended")}]`;
+  return null;
+}
+
+export type CursorMcpStatus = "ready" | "needs-approval" | "connection-failed" | "absent" | "no-cli";
+
+/** Model-free attachment probe: run `cursor-agent mcp list` in a workspace, report one server's
+ *  status. Used by `duo doctor` to catch the print-mode approval quirk before a session starts. */
+export function probeCursorMcp(workspace: string, serverName: string, bin?: string): CursorMcpStatus {
+  const cursorBin = bin ?? process.env.DUO_CURSOR_BIN ?? "cursor-agent";
+  let out: string;
+  try {
+    const res = spawnSync(cursorBin, ["mcp", "list"], { cwd: workspace, encoding: "utf8", timeout: 20_000 });
+    if (res.error) return "no-cli";
+    out = `${res.stdout ?? ""}${res.stderr ?? ""}`;
+  } catch {
+    return "no-cli";
+  }
+  const line = out.split("\n").find((l) => l.trim().startsWith(`${serverName}:`));
+  if (!line) return "absent";
+  const lower = line.toLowerCase();
+  if (lower.includes("ready")) return "ready";
+  if (lower.includes("approval")) return "needs-approval";
+  if (lower.includes("error") || lower.includes("failed")) return "connection-failed";
+  return "absent";
+}
+
+/** Copy text to the OS clipboard. Returns the tool used, or null if none available. */
+export function copyToClipboard(text: string): string | null {
+  const candidates: Array<{ bin: string; args: string[] }> =
+    process.platform === "darwin"
+      ? [{ bin: "pbcopy", args: [] }]
+      : [
+          { bin: "wl-copy", args: [] },
+          { bin: "xclip", args: ["-selection", "clipboard"] },
+          { bin: "xsel", args: ["--clipboard", "--input"] },
+        ];
+  for (const { bin, args } of candidates) {
+    try {
+      const res = spawnSync(bin, args, { input: text, timeout: 5000 });
+      if (!res.error && res.status === 0) return bin;
+    } catch {
+      /* try next */
+    }
+  }
+  return null;
+}
+
 /** Read stdout line-by-line, invoking onLine per complete line. Returns a flush function. */
 export function makeLineReader(onLine: (line: string) => void): (chunk: Buffer) => void {
   let buffer = "";

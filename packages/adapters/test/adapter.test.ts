@@ -6,7 +6,7 @@ import * as os from "os";
 import * as path from "path";
 import { afterEach, describe, expect, it } from "vitest";
 import { mergeMcpConfig, summarizeClaudeStreamLine, makeLineReader } from "../src/common.js";
-import { ClaudeCodeAdapter } from "../src/claudeCode.js";
+import { ClaudeCodeAdapter, buildClaudeArgs } from "../src/claudeCode.js";
 import { getAdapter, hasAdapter, knownRunners } from "../src/registry.js";
 import type { LaunchContext } from "../src/types.js";
 
@@ -93,7 +93,7 @@ describe("registry", () => {
     expect(hasAdapter("claude-code")).toBe(true);
     expect(knownRunners()).toContain("claude-code");
     expect(getAdapter("claude-code").runner).toBe("claude-code");
-    expect(() => getAdapter("cursor-cli")).toThrow(/No adapter/);
+    expect(() => getAdapter("nonexistent-runner" as never)).toThrow(/No adapter/);
   });
 });
 
@@ -110,6 +110,20 @@ describe("ClaudeCodeAdapter", () => {
     await adapter.configure(ctx);
     const parsed = JSON.parse(fs.readFileSync(path.join(ws, ".mcp.json"), "utf8"));
     expect(parsed.mcpServers.duo).toEqual({ type: "http", url: "http://127.0.0.1:3131/mcp" });
+  });
+
+  it("launch args explicitly allow the duo MCP server tools (regression: real-run permission bug)", () => {
+    const ctx: LaunchContext = {
+      agent: { id: "B", workspace: "/proj/api", runner: "claude-code", role: "Backend" },
+      kickoffPrompt: "go",
+      hubUrl: "http://127.0.0.1:3131",
+      toolPrefix: "duo",
+    };
+    const args = buildClaudeArgs(ctx, "acceptEdits");
+    const i = args.indexOf("--allowedTools");
+    expect(i).toBeGreaterThan(-1);
+    expect(args[i + 1]).toBe("mcp__duo");
+    expect(args).toContain("--mcp-config");
   });
 
   it("detect reports missing binary with a fix hint", async () => {

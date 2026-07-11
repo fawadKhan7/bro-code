@@ -5,12 +5,28 @@
 
 ## The phases at a glance
 
-| Phase | Deliverable | Proves |
+| Phase | Deliverable | Status |
 |---|---|---|
-| [1 — Hub extraction](phase-01-hub-extraction.md) | Standalone hub + new state model + fake-agent test suite | The protocol: board, planning, phases, recovery — all testable without AI tokens |
-| [2 — CLI + Claude adapter](phase-02-cli-and-claude-adapter.md) | `duo start` with two Claude Code agents, end to end | Auto-launch, held approval calls, long-lived sessions — with the most reliable runner |
-| [3 — Cursor adapters](phase-03-cursor-adapters.md) | cursor-cli + cursor-ide runners; mixed sessions; `duo doctor` | The compatibility matrix: cursor↔claude, claude↔cursor, cursor↔cursor |
-| [4 — Dashboard + packaging](phase-04-dashboard-and-packaging.md) | Localhost dashboard; `npm i -g`; docs | Usability for people who didn't build it |
+| [1 — Hub extraction](phase-01-hub-extraction.md) | Standalone hub + new state model + fake-agent test suite | ✅ done — 41 hub tests |
+| [2 — CLI + Claude adapter](phase-02-cli-and-claude-adapter.md) | `duo start` with two Claude Code agents, end to end | ✅ done — CLI + golden prompts + orchestration tests |
+| [3 — Cursor adapters](phase-03-cursor-adapters.md) | cursor-cli + cursor-ide runners; mixed sessions; `duo doctor` | ✅ done — validated by a live cursor↔claude run |
+| [4 — Dashboard + packaging](phase-04-dashboard-and-packaging.md) | Localhost dashboard; `npm i -g`; docs | ◐ dashboard built & verified; packaging configured, publish pending |
+
+## Implementation reality (divergences from the original blueprint)
+
+Recorded so the blueprint stays true, not aspirational:
+
+- **Claude Code MCP permission** (found in the first real run): `--permission-mode acceptEdits`
+  grants file edits but *not* MCP tool calls. The adapter also passes `--allowedTools "mcp__duo"`.
+  See [`packages/REAL-RUNS.md`](../../packages/REAL-RUNS.md).
+- **Cursor MCP approval quirk** (found in the phase-3 spike): a freshly-configured server is
+  "not loaded (needs approval)". Fixed by `cursor-agent mcp enable` in `configure()` + `--approve-mcps`
+  at launch. Streamable HTTP attaches fine — legacy `/sse` stays unused (kept only as a safety net).
+  See [`packages/adapters/src/cursor-spike-notes.md`](../../packages/adapters/src/cursor-spike-notes.md).
+- **Real-run matrix**: cursor-cli↔claude-code verified live; other combinations are symmetric or
+  proven tokenlessly, and remain opt-in real runs.
+- **Legacy code retired**: `src/` and `conductor/` moved to `legacy/` with pointers (this doc's
+  salvage map is complete).
 
 ## Sequencing logic
 

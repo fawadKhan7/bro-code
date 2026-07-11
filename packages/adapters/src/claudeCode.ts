@@ -3,6 +3,10 @@
  *  Known quirks / decisions (docs/04-strategies-and-design-principles/adapter-isolation.md rule 4):
  *  - Headless `claude -p` will stall on permission prompts unless a permission mode is set.
  *    We pass --permission-mode (default acceptEdits) from config.
+ *  - CRITICAL (found in the first real cursor↔claude run): --permission-mode acceptEdits allows
+ *    file edits but does NOT auto-grant MCP tool calls — the agent reports "the duo tools aren't
+ *    being granted permission" and never registers. Fix: pass --allowedTools "mcp__<prefix>" to
+ *    explicitly allow every tool from our MCP server. Server-level entry covers all 16 tools.
  *  - Project-scoped .mcp.json in the workspace is auto-discovered by Claude Code; we also pass
  *    --mcp-config explicitly so discovery never depends on cwd trust prompts.
  *  - stream-json output is parsed into hub log lines; a premature process exit is surfaced as an
@@ -57,6 +61,24 @@ class ClaudeProcessHandle implements AgentHandle {
   }
 }
 
+/** Pure arg builder — exported for unit testing (pins the --allowedTools MCP fix). */
+export function buildClaudeArgs(ctx: LaunchContext, permissionMode: string): string[] {
+  return [
+    "-p",
+    ctx.kickoffPrompt,
+    "--output-format",
+    "stream-json",
+    "--verbose",
+    "--permission-mode",
+    permissionMode,
+    // Explicitly allow every tool from our MCP server (acceptEdits alone does not grant MCP).
+    "--allowedTools",
+    `mcp__${ctx.toolPrefix}`,
+    "--mcp-config",
+    path.join(ctx.agent.workspace, ".mcp.json"),
+  ];
+}
+
 export class ClaudeCodeAdapter implements AgentAdapter {
   readonly runner = "claude-code" as const;
 
@@ -79,19 +101,7 @@ export class ClaudeCodeAdapter implements AgentAdapter {
 
   async launch(ctx: LaunchContext): Promise<AgentHandle> {
     const permissionMode = String(ctx.runnerOptions?.claudePermissionMode ?? "acceptEdits");
-    const mcpConfigPath = path.join(ctx.agent.workspace, ".mcp.json");
-
-    const args = [
-      "-p",
-      ctx.kickoffPrompt,
-      "--output-format",
-      "stream-json",
-      "--verbose",
-      "--permission-mode",
-      permissionMode,
-      "--mcp-config",
-      mcpConfigPath,
-    ];
+    const args = buildClaudeArgs(ctx, permissionMode);
 
     const child = spawn(claudeBin(), args, {
       cwd: ctx.agent.workspace,

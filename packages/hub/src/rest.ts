@@ -69,6 +69,11 @@ export class RestApi {
       return true;
     }
 
+    if (method === "GET" && urlPath === "/api/contracts") {
+      json(res, 200, this.store.getContracts());
+      return true;
+    }
+
     if (method === "GET" && urlPath === "/api/board") {
       json(res, 200, {
         ...(this.store.getBoard() as object),

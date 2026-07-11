@@ -3,11 +3,24 @@
  *  /health + /api/* (REST control) · /api/updates (SSE events)
  */
 import * as http from "http";
+import * as fs from "fs";
+import { fileURLToPath } from "url";
 import { sessionPath } from "@duo/shared";
 import { SessionStore } from "./store.js";
 import { RestApi } from "./rest.js";
 import { LegacySseTransport } from "./legacySse.js";
 import { handleMcpRequest } from "./mcpTransport.js";
+
+/** dist/server.js → ../dashboard/index.html (bundled via package "files"). Read once, cached. */
+function loadDashboard(): string | null {
+  try {
+    const file = fileURLToPath(new URL("../dashboard/index.html", import.meta.url));
+    return fs.readFileSync(file, "utf8");
+  } catch {
+    return null;
+  }
+}
+let dashboardHtml: string | null | undefined;
 
 export interface HubOptions {
   port?: number;
@@ -92,6 +105,16 @@ export class Hub {
     }
 
     if (this.rest && (await this.rest.handle(req, res, urlPath))) return;
+
+    // Dashboard (static single page).
+    if (req.method === "GET" && (urlPath === "/" || urlPath === "/index.html")) {
+      if (dashboardHtml === undefined) dashboardHtml = loadDashboard();
+      if (dashboardHtml) {
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+        res.end(dashboardHtml);
+        return;
+      }
+    }
 
     res.writeHead(404, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ error: `Not found: ${req.method} ${urlPath}` }));

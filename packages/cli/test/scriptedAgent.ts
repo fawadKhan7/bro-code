@@ -63,12 +63,13 @@ export class ScriptClient {
 export type AgentScript = (client: ScriptClient, ctx: LaunchContext) => Promise<void>;
 
 class ScriptHandle implements AgentHandle {
-  readonly kind = "process" as const;
+  readonly kind: "process" | "manual";
   readonly events = new EventEmitter();
   private _exited = false;
   private client: ScriptClient;
 
-  constructor(ctx: LaunchContext, script: AgentScript) {
+  constructor(ctx: LaunchContext, script: AgentScript, kind: "process" | "manual" = "process") {
+    this.kind = kind;
     this.client = new ScriptClient(ctx.agent.id, ctx.agent.workspace, ctx.hubUrl);
     void this.run(ctx, script);
   }
@@ -107,6 +108,8 @@ export interface ScriptedAdapterOptions {
   /** Optional script per agent id for relaunch (resume). Falls back to `scripts`. */
   resumeScripts?: Record<string, AgentScript>;
   detect?: DetectResult;
+  /** Agent ids whose handles should report kind:"manual" (cursor-ide simulation). */
+  manualAgents?: string[];
 }
 
 export class ScriptedAdapter implements AgentAdapter {
@@ -131,6 +134,7 @@ export class ScriptedAdapter implements AgentAdapter {
       n > 1
         ? this.opts.resumeScripts?.[ctx.agent.id] ?? this.opts.scripts[ctx.agent.id]
         : this.opts.scripts[ctx.agent.id];
-    return new ScriptHandle(ctx, script);
+    const kind = this.opts.manualAgents?.includes(ctx.agent.id) ? "manual" : "process";
+    return new ScriptHandle(ctx, script, kind);
   }
 }
