@@ -1,4 +1,4 @@
-# Project Documentation — Duo (working title)
+# Project Documentation — BroCode
 
 > Multi-agent AI collaboration: two (later N) coding agents — Cursor, Claude Code, or a mix —
 > work on one goal in parallel, coordinated through a local MCP hub, controlled from a single CLI.

@@ -17,7 +17,7 @@ describe("dashboard serving", () => {
       expect(res.status).toBe(200);
       expect(res.headers.get("content-type")).toContain("text/html");
       const body = await res.text();
-      expect(body).toContain("<title>Duo</title>");
+      expect(body).toContain("<title>BroCode</title>");
       expect(body).toContain("/api/updates"); // subscribes to the existing event stream
     }
   });

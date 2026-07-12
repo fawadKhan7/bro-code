@@ -1,6 +1,6 @@
-# Duo Desktop App (Electron)
+# BroCode Desktop App (Electron)
 
-The zero-terminal way to use Duo: a native window with a setup wizard, an **OS folder picker**,
+The zero-terminal way to use BroCode: a native window with a setup wizard, an **OS folder picker**,
 session control, and OS notifications when an approval is waiting.
 
 ## What it is

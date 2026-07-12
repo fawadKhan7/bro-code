@@ -1,7 +1,7 @@
 {
   "name": "@duo/app",
   "version": "0.1.0",
-  "description": "Duo desktop app (Electron) — setup wizard, native folder picker, session control, OS notifications",
+  "description": "BroCode desktop app (Electron) — setup wizard, native folder picker, session control, OS notifications",
   "private": true,
   "type": "module",
   "main": "dist/main.js",
@@ -19,8 +19,8 @@
     "electron-builder": "^24.13.3"
   },
   "build": {
-    "appId": "com.duo.app",
-    "productName": "Duo",
+    "appId": "com.brocode.app",
+    "productName": "BroCode",
     "files": [
       "dist/**",
       "node_modules/**"

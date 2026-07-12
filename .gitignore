@@ -6,5 +6,6 @@ dist/
 out/
 .vite/
 coverage/
-*vsix
-.env**.tsbuildinfo
+*.vsix
+.env*
+*.tsbuildinfo

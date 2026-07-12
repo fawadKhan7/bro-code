@@ -1,7 +1,7 @@
 {
   "name": "@duo/hub",
   "version": "0.1.0",
-  "description": "Duo hub: standalone coordination server — MCP (streamable HTTP + legacy SSE), REST control API, SSE events, session state",
+  "description": "BroCode hub: standalone coordination server — MCP (streamable HTTP + legacy SSE), REST control API, SSE events, session state",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

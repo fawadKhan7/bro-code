@@ -21,7 +21,7 @@ export async function cmdOpen(): Promise<void> {
   const port = config?.port ?? 3131;
   const hub = await ensureHub(port);
   const url = hub.url + "/";
-  console.log(`Duo dashboard: ${url}`);
+  console.log(`BroCode dashboard: ${url}`);
   if (!config) console.log("  (no config yet — set up your agents in the dashboard, or run `duo init`)");
   openBrowser(url);
 }

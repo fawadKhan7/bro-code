@@ -1,7 +1,7 @@
 {
   "name": "@duo/cli",
   "version": "0.1.0",
-  "description": "duo — the single CLI for multi-agent AI collaboration",
+  "description": "BroCode CLI (duo) — the single CLI for multi-agent AI collaboration",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

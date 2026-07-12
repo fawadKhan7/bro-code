@@ -22,7 +22,7 @@ async function ask(rl: readline.Interface, question: string, fallback: string): 
 export async function cmdInit(): Promise<void> {
   const rl = readline.createInterface({ input: stdin, output: stdout });
   try {
-    console.log("Configuring a Duo session (two agents).\n");
+    console.log("Configuring a BroCode session (two agents).\n");
     const runnersHint = knownRunners().join(", ");
 
     const agents: AgentConfig[] = [];

@@ -59,7 +59,7 @@ function parseList(value: string | boolean | undefined): string[] | undefined {
   return value.split(",").map((s) => s.trim()).filter(Boolean);
 }
 
-const HELP = `duo — multi-agent AI collaboration
+const HELP = `BroCode (duo) — multi-agent AI collaboration
 
 Usage:
   duo                               Open the dashboard (starts the hub)

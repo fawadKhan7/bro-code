@@ -1,4 +1,4 @@
-# Duo
+# BroCode
 
 > Two (later N) AI coding agents — Cursor, Claude Code, or a mix — work on one goal in parallel,
 > coordinated through a local MCP hub, driven by a single CLI. Zero API keys: agents run on your

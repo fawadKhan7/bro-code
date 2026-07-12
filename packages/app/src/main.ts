@@ -1,4 +1,4 @@
-/** Duo desktop app — Electron main process.
+/** BroCode desktop app — Electron main process.
  *
  *  Runs the hub IN-PROCESS (the hub is a Node library, which is why Electron beats Tauri here —
  *  no sidecar binary, no second language). The window loads the hub-served dashboard at localhost,
@@ -44,7 +44,7 @@ function createWindow(url: string): void {
   win = new BrowserWindow({
     width: 1100,
     height: 820,
-    title: "Duo",
+    title: "BroCode",
     webPreferences: { preload: path.join(__dirname, "preload.js") },
   });
   void win.loadURL(url + "/");
@@ -62,9 +62,9 @@ function focusWindow(): void {
 function setupTray(): void {
   // A blank tray icon (a real asset ships with the packaged app).
   tray = new Tray(nativeImage.createEmpty());
-  tray.setToolTip("Duo");
+  tray.setToolTip("BroCode");
   const menu = Menu.buildFromTemplate([
-    { label: "Open Duo", click: () => focusWindow() },
+    { label: "Open BroCode", click: () => focusWindow() },
     { type: "separator" },
     { label: "Quit", click: () => app.quit() },
   ]);

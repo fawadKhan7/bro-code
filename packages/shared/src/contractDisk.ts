@@ -66,7 +66,7 @@ export function writeContractRevisionToDisk(
     const prev = fs.readFileSync(filePath, "utf8");
     body = `${block}\n\n---\n\n${prev}`;
   } else {
-    body = `# Duo — contract: \`${slug}\`\n\n${block}`;
+    body = `# BroCode — contract: \`${slug}\`\n\n${block}`;
   }
 
   fs.writeFileSync(filePath, body, "utf8");

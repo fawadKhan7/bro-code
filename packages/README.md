@@ -1,4 +1,4 @@
-# Duo — multi-agent AI collaboration
+# BroCode — multi-agent AI collaboration
 
 Two (later N) AI coding agents work on one goal in parallel, coordinated through a local MCP
 hub, driven by a single CLI. Zero API keys — agents run on your existing subscriptions; the

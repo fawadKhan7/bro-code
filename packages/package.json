@@ -2,7 +2,7 @@
   "name": "@duo/monorepo",
   "private": true,
   "version": "0.1.0",
-  "description": "Duo — multi-agent AI collaboration hub (workspace root)",
+  "description": "BroCode — multi-agent AI collaboration hub (workspace root)",
   "workspaces": [
     "shared",
     "hub",
