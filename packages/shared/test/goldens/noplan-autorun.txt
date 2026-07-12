@@ -21,7 +21,7 @@ src/users/user.model.ts  ← exports: User
 ## Step 1 — Your task is already assigned
 Planning was skipped for this session. Your work item is already on the board.
 - Call `get_board`, find the item you own, and `claim_task` it before starting.
-- The moment an interface/shape is DECIDED, call `post_contract` so peers can integrate.
+- The moment an interface/shape is DECIDED, call `post_contract` so peers can integrate. Give a one-sentence plain-language `summary` (what was decided) and structure the content as: What was decided / The interface / Example.
 - Read peer contracts with `get_contracts` when ready to integrate.
 - Call `post_update` at milestones; `complete_task` with refs when done.
 

@@ -31,10 +31,19 @@ More docs: [TROUBLESHOOTING.md](TROUBLESHOOTING.md) · [MIGRATION.md](MIGRATION.
 
 ```
 shared/     types, presets, project scanner, contract disk mirror, resume briefs, prompt builder, config
-hub/        standalone coordination server — MCP (streamable HTTP + legacy SSE), REST, SSE events, state
+hub/        standalone coordination server — MCP + REST + SSE + hub-owned sessions + dashboard
 adapters/   per-runner launch/config isolation (claude-code, cursor-cli, cursor-ide)
 cli/        the `duo` command
+app/        Electron desktop app (setup wizard, native folder picker, OS notifications)
 ```
+
+## Two ways to use it
+
+- **Terminal**: `duo init` → `duo start "goal"` → `duo plan`/`duo approve` (or the dashboard at
+  `http://localhost:3131`). See below.
+- **Desktop app** (zero terminal): `cd packages && npm install && npm run build:app && cd app && npm start`.
+  A native window opens on a **setup wizard** — pick folders with the OS dialog, choose runners,
+  start a session, approve from OS notifications. See [app/README.md](app/README.md).
 
 ## Runners
 

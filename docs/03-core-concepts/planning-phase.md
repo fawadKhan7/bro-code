@@ -18,7 +18,9 @@ have the codebase open — so *they* author the plan, and the human arbitrates. 
 
 1. Kickoff instructs: explore, then `post_plan` with **items only** — `{ title, ownerHint,
    paths[] }`, ≤15 items, no prose. Include *everything* (code, env, DB, deploy); leave unclear
-   items unassigned.
+   items unassigned. Plus a `plan_summary` (v2): 2-3 plain sentences for the human reviewer
+   ("what I'll build and in what order"), capped — the one deliberate prose exception, rendered
+   above the item table in `duo plan` and the dashboard so the reviewer reads intent before the list.
 2. Hub merges both agents' proposals (title/path similarity de-dup — pure logic, no LLM),
    flags overlaps and unassigned items.
 3. Agents block on `await_plan_approval` — a held tool call; the **process stays alive**, its

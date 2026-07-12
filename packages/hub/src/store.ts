@@ -15,6 +15,7 @@ import {
   type AgentConfig,
   type BoardItem,
   type Checkpoint,
+  type CheckpointKind,
   type Contract,
   type HubEvent,
   type LogEntry,
@@ -64,6 +65,24 @@ function nowIso(): string {
 
 function normTitle(t: string): string {
   return t.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+/** Content words of a title (drop short/filler words) for fuzzy duplicate detection. */
+const FILLER = new Set(["the", "a", "an", "and", "for", "with", "to", "of", "in", "on", "add", "set", "up", "per", "app"]);
+function titleTokens(t: string): Set<string> {
+  return new Set(normTitle(t).split(" ").filter((w) => w.length > 2 && !FILLER.has(w)));
+}
+function jaccard(a: Set<string>, b: Set<string>): number {
+  if (a.size === 0 || b.size === 0) return 0;
+  let inter = 0;
+  for (const x of a) if (b.has(x)) inter++;
+  return inter / (a.size + b.size - inter);
+}
+function pathsOverlap(a: string[], b: string[]): boolean {
+  if (!a.length || !b.length) return false;
+  const norm = (p: string) => p.replace(/\/+$/, "").toLowerCase();
+  const sa = new Set(a.map(norm));
+  return b.some((p) => sa.has(norm(p)));
 }
 
 export class SessionStore {
@@ -231,7 +250,7 @@ export class SessionStore {
     };
   }
 
-  postPlan(agentId: string, items: PlanItemInput[]): object | ToolRejection {
+  postPlan(agentId: string, items: PlanItemInput[], planSummary?: string): object | ToolRejection {
     if (!this.state.active) return this.rejection("No active session.");
     if (this.state.phase !== "planning") {
       return this.rejection(
@@ -258,6 +277,9 @@ export class SessionStore {
       ownerHint: i.ownerHint ?? null,
       paths: (i.paths ?? []).map(String),
     }));
+    if (planSummary && planSummary.trim()) {
+      this.state.planSummaries[agentId] = String(planSummary).slice(0, 400);
+    }
 
     const allPosted = this.state.agents.every((a) => !!this.state.planProposals[a.id]);
     if (allPosted) this.mergeProposals();
@@ -282,27 +304,37 @@ export class SessionStore {
     return { ok: true, merged: allPosted, itemCount: items.length };
   }
 
-  /** Merge all proposals: concat in agent order, de-dup by normalized title or identical path sets. */
+  /** Merge all proposals, collapsing near-duplicates. Two agents often plan overlapping shared
+   *  work with slightly different wording ("Scaffold monorepo" vs "Scaffold monorepo root") — we
+   *  fold those into one item by fuzzy title similarity OR shared file paths, so the board stays
+   *  short and readable. */
   private mergeProposals(): void {
     const merged: BoardItem[] = [];
-    const seenTitles = new Map<string, BoardItem>();
+    const tokensOf: Set<string>[] = [];
     let counter = 0;
 
     for (const agent of this.state.agents) {
       for (const input of this.state.planProposals[agent.id] ?? []) {
-        const key = normTitle(input.title);
-        const existing = seenTitles.get(key);
-        if (existing) {
-          // Duplicate: keep first; adopt an owner hint if the first had none.
+        const toks = titleTokens(input.title);
+        const dupIndex = merged.findIndex(
+          (m, i) =>
+            // Fuzzy-title match needs ≥2 content tokens on both sides (avoid single-word collisions).
+            (toks.size >= 2 && tokensOf[i].size >= 2 && jaccard(tokensOf[i], toks) >= 0.6) ||
+            pathsOverlap(m.paths, input.paths ?? [])
+        );
+        if (dupIndex >= 0) {
+          const existing = merged[dupIndex];
+          // Adopt an owner hint if the kept item had none; union the file paths.
           if (!existing.owner && input.ownerHint && this.state.agents.some((a) => a.id === input.ownerHint)) {
             existing.owner = input.ownerHint;
             existing.ownerHint = input.ownerHint;
           }
+          for (const p of input.paths ?? []) if (!existing.paths.includes(p)) existing.paths.push(p);
           continue;
         }
         const item = this.toBoardItem(input, `t${++counter}`, agent.id);
-        seenTitles.set(key, item);
         merged.push(item);
+        tokensOf.push(toks);
       }
     }
     this.state.proposedBoard = merged;
@@ -311,7 +343,12 @@ export class SessionStore {
   planStatus(): object {
     return {
       phase: this.state.phase,
-      posted: this.state.agents.map((a) => ({ agentId: a.id, posted: !!this.state.planProposals[a.id] })),
+      posted: this.state.agents.map((a) => ({
+        agentId: a.id,
+        posted: !!this.state.planProposals[a.id],
+        summary: this.state.planSummaries[a.id] ?? null,
+      })),
+      summaries: { ...this.state.planSummaries },
       proposedBoard: this.state.proposedBoard,
       unassigned: this.state.proposedBoard.filter((i) => !i.owner).map((i) => i.id),
     };
@@ -389,13 +426,15 @@ export class SessionStore {
       }
     }
 
-    // Unassigned items block approval — the human must decide.
-    const unassigned = items.filter((i) => i.status !== "out-of-scope" && !i.owner);
-    if (unassigned.length > 0) {
-      return this.rejection(
-        `Cannot approve: unassigned items remain (${unassigned.map((i) => i.id).join(", ")}). ` +
-          `Assign them (--assign tN=agentId) or mark them out of scope.`
-      );
+    // The app decides ownership so approval is one click: auto-assign any unowned item to the
+    // agent that proposed it (round-robin fallback for ties / no proposer). The human can still
+    // override via edits.assign or reshuffle with feedback.
+    const agentIds = this.state.agents.map((a) => a.id);
+    let rr = 0;
+    for (const item of items) {
+      if (item.status === "out-of-scope" || item.owner) continue;
+      const proposer = item.proposedBy && agentIds.includes(item.proposedBy) ? item.proposedBy : null;
+      item.owner = proposer ?? agentIds[rr++ % agentIds.length];
     }
 
     this.state.boardVersion += 1;
@@ -524,7 +563,8 @@ export class SessionStore {
     agentId: string,
     content: string,
     title?: string,
-    service?: string
+    service?: string,
+    summary?: string
   ): object | ToolRejection {
     if (!this.state.active) return this.rejection("No active session.");
     const agent = this.state.agents.find((a) => a.id === agentId);
@@ -552,8 +592,10 @@ export class SessionStore {
     }
 
     this.state.contractRevisionBySlug[slug] = revision;
+    const cleanSummary = summary && summary.trim() ? String(summary).slice(0, 240) : undefined;
     const contract: Contract = {
       agentId,
+      summary: cleanSummary,
       content,
       timestamp,
       contentHash,
@@ -565,7 +607,10 @@ export class SessionStore {
     };
     this.state.contracts.push(contract);
     this.persist();
-    this.emit({ type: "log", data: this.pushLog(agentId, `📋 Posted contract ${slug} rev${revision}.`) });
+    const logMsg = cleanSummary
+      ? `📋 Contract ${slug} rev${revision}: ${cleanSummary}`
+      : `📋 Posted contract ${slug} rev${revision}.`;
+    this.emit({ type: "log", data: this.pushLog(agentId, logMsg) });
     return { ok: true, service: slug, revision, contentHash, diskPath, version: contract.version };
   }
 
@@ -602,16 +647,37 @@ export class SessionStore {
 
   // ── Checkpoints ─────────────────────────────────────────────────────────────
 
-  postCheckpoint(agentId: string, summary: string, nextStep: string): object | ToolRejection {
+  postCheckpoint(
+    agentId: string,
+    summary: string,
+    nextStep: string,
+    opts?: { why?: string; impact?: string; kind?: CheckpointKind }
+  ): object | ToolRejection {
     if (!this.state.active) return this.rejection("No active session.");
     if (!this.state.agents.some((a) => a.id === agentId)) {
       return this.rejection(`Unknown agent_id "${agentId}".`);
     }
-    const cp: Checkpoint = { agentId, summary, nextStep, status: "pending", timestamp: nowIso() };
+    const clean = (s?: string) => (s && s.trim() ? String(s).slice(0, 400) : undefined);
+    const cp: Checkpoint = {
+      agentId,
+      summary,
+      nextStep,
+      why: clean(opts?.why),
+      impact: clean(opts?.impact),
+      kind: opts?.kind === "question" ? "question" : "checkpoint",
+      status: "pending",
+      timestamp: nowIso(),
+    };
     this.state.checkpoints[agentId] = cp;
     this.persist();
     this.emit({ type: "checkpoint", data: cp });
-    return { ok: true, message: "Checkpoint recorded. Waiting for user decision — poll get_checkpoint_status." };
+    return {
+      ok: true,
+      message:
+        cp.kind === "question"
+          ? "Question recorded. The user will answer via feedback — poll get_checkpoint_status until status is 'feedback', then act on the answer."
+          : "Checkpoint recorded. Waiting for user decision — poll get_checkpoint_status.",
+    };
   }
 
   resolveCheckpoint(agentId: string, approved: boolean, feedback?: string): object | ToolRejection {
@@ -636,7 +702,7 @@ export class SessionStore {
   getCheckpointStatus(agentId: string): object {
     const cp = this.state.checkpoints[agentId];
     if (!cp) return { status: "none" };
-    return { status: cp.status, feedback: cp.feedback ?? null };
+    return { status: cp.status, feedback: cp.feedback ?? null, kind: cp.kind ?? "checkpoint" };
   }
 
   /** Optional long-poll: resolves when the pending checkpoint is resolved, or after timeoutMs. */
@@ -681,7 +747,9 @@ export class SessionStore {
         registered: !!s.registrations[a.id],
         planPosted: !!s.planProposals[a.id],
         checkpoint: s.checkpoints[a.id] ?? null,
+        tokens: s.tokensByAgent[a.id] ?? 0,
       })),
+      totalTokens: Object.values(s.tokensByAgent).reduce((sum, n) => sum + n, 0),
       boardVersion: s.boardVersion,
       board: {
         total: s.board.length,
@@ -694,7 +762,24 @@ export class SessionStore {
       contractVersion: s.contractVersion,
       logCount: s.logs.length,
       startedAt: s.startedAt,
+      allRegistered: s.active && this.allRegistered(),
+      launchError: s.launchError,
     };
+  }
+
+  /** Supervisor reports a launch/registration failure — surfaced to clients via status. */
+  setLaunchError(message: string | null): void {
+    this.state.launchError = message;
+    this.persist();
+    this.emit({ type: "status", data: this.getStatus() });
+  }
+
+  /** Accumulate tokens for an agent (parsed from runner usage). Emits a status refresh. */
+  addTokens(agentId: string, tokens: number): void {
+    if (!Number.isFinite(tokens) || tokens <= 0) return;
+    this.state.tokensByAgent[agentId] = (this.state.tokensByAgent[agentId] ?? 0) + Math.round(tokens);
+    this.persist();
+    this.emit({ type: "status", data: this.getStatus() });
   }
 
   sessionBrief(agentId: string): object | ToolRejection {

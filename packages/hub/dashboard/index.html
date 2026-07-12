@@ -70,10 +70,43 @@
   .contract { padding: 8px 0; border-bottom: 1px solid var(--border); }
   .contract:last-child { border-bottom: 0; }
   .contract summary { cursor: pointer; font-weight: 600; }
+  .contract .headline { font-weight: 600; }
+  .contract .svc { font-size: 12px; color: var(--dim); font-weight: 400; }
   .contract pre { white-space: pre-wrap; font-size: 12px; color: var(--dim); margin-top: 6px; background: var(--bg); padding: 8px; border-radius: 6px; }
+  .contract pre .add { color: var(--green); }
+  .contract pre .del { color: var(--red); }
+  .why { font-size: 13px; color: var(--dim); margin: 2px 0; }
+  .why b { color: var(--text); font-weight: 600; }
+  .plan-summary { background: var(--chip); border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; font-size: 13px; }
+  .plan-summary .who { color: var(--accent); font-weight: 600; }
   .muted { color: var(--dim); }
   .checkpoint { border-left: 3px solid var(--accent); }
   .empty { color: var(--dim); font-style: italic; }
+
+  /* Wizard + start */
+  label { display: block; font-weight: 600; font-size: 13px; margin: 12px 0 4px; }
+  .agent-setup { border: 1px solid var(--border); border-radius: 10px; padding: 14px; margin-bottom: 12px; }
+  .agent-setup h3 { font-size: 14px; margin-bottom: 4px; }
+  .field-row { display: flex; gap: 8px; align-items: center; }
+  .field-row input[type=text] { flex: 1; }
+  textarea { width: 100%; font: inherit; padding: 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); resize: vertical; min-height: 60px; }
+  .runner-ok { color: var(--green); font-size: 12px; }
+  .runner-bad { color: var(--red); font-size: 12px; }
+  .mode-opt { display: block; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; margin: 6px 0; cursor: pointer; }
+  .mode-opt input { margin-right: 8px; }
+  .mode-opt .desc { color: var(--dim); font-size: 12px; margin-left: 22px; }
+  .err { color: var(--red); font-size: 13px; margin-top: 8px; }
+
+  /* Folder modal */
+  .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; z-index: 50; }
+  .modal { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; width: min(560px, 92vw); max-height: 80vh; display: flex; flex-direction: column; box-shadow: 0 10px 40px rgba(0,0,0,.3); }
+  .modal-head { padding: 14px 16px; border-bottom: 1px solid var(--border); font-weight: 600; }
+  .crumb { padding: 8px 16px; font-family: ui-monospace, monospace; font-size: 12px; color: var(--dim); word-break: break-all; }
+  .dir-list { overflow-y: auto; padding: 4px 8px; flex: 1; }
+  .dir-item { padding: 7px 10px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+  .dir-item:hover { background: var(--chip); }
+  .dir-item::before { content: "📁 "; }
+  .modal-foot { padding: 12px 16px; border-top: 1px solid var(--border); display: flex; gap: 8px; justify-content: flex-end; }
 </style>
 </head>
 <body>
@@ -85,6 +118,57 @@
     <div id="conn" class="down">connecting…</div>
   </header>
 
+  <!-- Setup wizard (shown when there is no config) -->
+  <div id="wizard-view" style="display:none">
+    <div class="panel">
+      <h2>Set up your two agents</h2>
+      <div class="muted" style="font-size:13px;margin-bottom:8px">Pick a folder for each agent, choose which AI runs it, and name its role. Use separate folders (or a monorepo — see the roles).</div>
+      <div id="agent-setups"></div>
+      <label>Mode</label>
+      <div class="field-row">
+        <select id="w-preset">
+          <option value="frontend-backend">frontend-backend</option>
+          <option value="builder-reviewer">builder-reviewer</option>
+          <option value="architect-implementer">architect-implementer</option>
+          <option value="feature-tests">feature-tests</option>
+          <option value="service-ab">service-ab</option>
+          <option value="custom">custom</option>
+        </select>
+        <select id="w-mode">
+          <option value="auto-run">auto-run (work to completion)</option>
+          <option value="checkpoint">checkpoint (pause at milestones)</option>
+        </select>
+      </div>
+      <div id="wizard-err" class="err"></div>
+      <div class="row" style="margin-top:14px">
+        <button class="primary" onclick="saveWizard()">Save configuration</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Start a session (config exists, no active session) -->
+  <div id="start-view" style="display:none">
+    <div class="panel">
+      <div class="row" style="justify-content:space-between">
+        <h2>Start a session</h2>
+        <button onclick="showWizard()" style="font-size:12px">Reconfigure agents</button>
+      </div>
+      <div id="start-agents" class="muted" style="font-size:13px;margin-bottom:10px"></div>
+      <label>What should the agents build?</label>
+      <textarea id="s-goal" placeholder="e.g. Add a health-check endpoint on the backend and a status badge on the frontend"></textarea>
+      <label>Mode</label>
+      <label class="mode-opt"><input type="radio" name="s-mode" value="checkpoint" checked>Checkpoint<span class="desc">Agents pause for your approval at milestones and before risky actions. Recommended.</span></label>
+      <label class="mode-opt"><input type="radio" name="s-mode" value="auto-run">Auto-run<span class="desc">Agents work to completion without pausing. Faster, less oversight.</span></label>
+      <label class="mode-opt" style="border:0;padding-left:0"><input type="checkbox" id="s-plan" checked>Plan first (agents propose a breakdown you approve before they code)</label>
+      <div id="start-err" class="err"></div>
+      <div class="row" style="margin-top:12px">
+        <button class="primary" onclick="startSession()">Start session</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Live session (existing view) -->
+  <div id="session-view" style="display:none">
   <div class="panel" id="session-panel">
     <div class="row" style="justify-content:space-between">
       <div id="goal" style="font-weight:600; flex:1">No active session</div>
@@ -114,6 +198,9 @@
     <h2>Activity</h2>
     <div id="log" class="log"><div class="empty">—</div></div>
   </div>
+  </div><!-- /session-view -->
+
+  <div id="folder-modal"></div>
 
 <script>
 const $ = (id) => document.getElementById(id);
@@ -132,9 +219,44 @@ const ST = { open: "○", claimed: "◐", done: "✓", "out-of-scope": "⊘" };
 const STCOLOR = { open: "var(--dim)", claimed: "var(--amber)", done: "var(--green)", "out-of-scope": "var(--dim)" };
 
 function esc(s) { return String(s ?? "").replace(/[&<>]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;" }[c])); }
+function fmtTokens(n) { return n >= 1000 ? (n / 1000).toFixed(1).replace(/\.0$/, "") + "k" : String(n); }
+
+// ── View router: wizard (no config) → start (config, no session) → session (active) ──
+let cachedConfig = null;
+let cachedRunners = null;
+let forceWizard = false;
+let currentView = null;
+
+function showOnly(view) {
+  for (const v of ["wizard-view", "start-view", "session-view"]) {
+    $(v).style.display = v === view ? "block" : "none";
+  }
+  currentView = view;
+}
+function showWizard() { forceWizard = true; currentView = null; route(); }
+
+async function route() {
+  const status = await api("GET", "/api/status");
+  if (status.active) { forceWizard = false; showOnly("session-view"); return status; }
+  if (!cachedConfig) cachedConfig = (await api("GET", "/api/config")).config;
+  const target = (forceWizard || !cachedConfig || !cachedConfig.agents || cachedConfig.agents.length < 2)
+    ? "wizard-view" : "start-view";
+  // Don't re-render an input-bearing view that's already showing (would clobber typing).
+  if (target === currentView) return status;
+  if (target === "wizard-view") await renderWizard(); else renderStartView();
+  showOnly(target);
+  return status;
+}
+
+// Map agent id → the role name the user gave, so the UI shows "Backend Dev" not "B".
+let roleMap = {};
+function roleOf(id) { return roleMap[id] || id; }
 
 async function refresh() {
-  const [status, board] = await Promise.all([api("GET", "/api/status"), api("GET", "/api/board")]);
+  const status = await route();
+  if (!status.active) return; // wizard/start views don't need board data
+  roleMap = {}; for (const a of (status.agents || [])) roleMap[a.id] = a.role;
+  const board = await api("GET", "/api/board");
   renderSession(status);
   renderBoard(board, status);
   renderReview(status, board);
@@ -151,12 +273,13 @@ function renderSession(s) {
   $("stop-btn").disabled = false;
   $("goal").textContent = s.goal;
   $("phase").className = "badge phase-" + s.phase; $("phase").textContent = s.phase;
-  $("mode").textContent = "mode: " + s.mode;
+  $("mode").textContent = "mode: " + s.mode + (s.totalTokens ? `   ·   ≈ ${fmtTokens(s.totalTokens)} tokens total` : "");
   $("agents").innerHTML = (s.agents || []).map(a => `
     <div class="agent">
       <span class="dot ${a.registered ? "on" : ""}"></span>
-      <span class="role">Agent ${esc(a.id)} · ${esc(a.role)}</span>
-      <span class="runner">${esc(a.runner)}</span>
+      <span class="role">${esc(a.role)}</span>
+      <span class="runner">${esc(a.runner)}${a.model ? " · " + esc(a.model) : ""}</span>
+      ${a.tokens ? `<span class="runner" title="tokens used">≈ ${fmtTokens(a.tokens)} tok</span>` : ""}
       ${a.checkpoint && a.checkpoint.status === "pending" ? '<span class="badge" style="color:var(--accent)">⏸ checkpoint</span>' : ""}
     </div>`).join("");
 }
@@ -172,9 +295,8 @@ function renderBoard(board, status) {
   $("board").innerHTML = items.map(i => `
     <div class="item">
       <span class="st" style="color:${STCOLOR[i.status]}">${ST[i.status] || "?"}</span>
-      <span class="id">${esc(i.id)}</span>
       <span>${esc(i.title)}${i.paths && i.paths.length ? `<span class="paths">${esc(i.paths.join(", "))}</span>` : ""}</span>
-      <span class="who">${esc(i.claimedBy || i.owner || "—")}</span>
+      <span class="who">${esc(roleOf(i.claimedBy || i.owner) || "—")}</span>
     </div>`).join("");
 }
 
@@ -189,59 +311,93 @@ function renderReview(status, board) {
       el.innerHTML = `<h2>Plan review</h2><div class="muted">Waiting for agents to post their plans…</div>`;
       return;
     }
-    const agentIds = (status.agents || []).map(a => a.id);
+    const summaries = (board.plan && board.plan.summaries) || {};
+    const summaryHtml = Object.entries(summaries).filter(([, v]) => v).map(([id, v]) =>
+      `<div class="plan-summary"><span class="who">${esc(roleOf(id))}</span> — ${esc(v)}</div>`).join("")
+      || `<div class="muted" style="font-size:13px">The agents proposed ${proposed.length} tasks (open the list below for detail).</div>`;
+    // The app assigns owners automatically — the plan just shows who will do what. No dropdowns.
+    const taskList = proposed.map(i =>
+      `<div class="item">
+         <span>${esc(i.title)}${i.paths && i.paths.length ? `<span class="paths">${esc(i.paths.join(", "))}</span>` : ""}</span>
+         <span class="who">${i.owner ? esc(roleOf(i.owner)) : "auto"}</span>
+       </div>`).join("");
     el.style.display = "block";
-    el.innerHTML = `<h2>Plan review — approve to start execution</h2>
-      ${proposed.map(i => `
-        <div class="item ${!i.owner ? "unassigned" : ""}">
-          <span class="id">${esc(i.id)}</span>
-          <span>${esc(i.title)}</span>
-          ${i.owner
-            ? `<span class="who">${esc(i.owner)}</span>`
-            : `<span class="assign-row">assign to
-                 <select id="assign-${i.id}">
-                   <option value="">—</option>
-                   ${agentIds.map(a => `<option value="${esc(a)}">${esc(a)}</option>`).join("")}
-                 </select></span>`}
-        </div>`).join("")}
-      <div class="row" style="margin-top:12px">
-        <button class="primary" onclick="approvePlan()">Approve plan</button>
-        <input type="text" id="plan-fb" placeholder="…or send feedback for another round" />
+    el.innerHTML = `<h2>Plan review — approve to start</h2>
+      ${summaryHtml}
+      <details style="margin-top:10px">
+        <summary style="cursor:pointer;font-size:13px;color:var(--dim)">${proposed.length} tasks ▸</summary>
+        <div style="margin-top:6px">${taskList}</div>
+      </details>
+      <div class="row" style="margin-top:14px">
+        <button class="primary" onclick="approvePlan()">Approve &amp; start</button>
+        <input type="text" id="plan-fb" placeholder="…or tell them to change something" />
         <button onclick="planFeedback()">Send feedback</button>
       </div>`;
     return;
   }
   // Checkpoints
   const pending = (status.agents || []).filter(a => a.checkpoint && a.checkpoint.status === "pending");
+  notifyPending(status, pending);
   if (pending.length) {
     el.style.display = "block";
     el.className = "panel checkpoint";
-    el.innerHTML = `<h2>Checkpoints</h2>` + pending.map(a => `
-      <div style="margin-bottom:10px">
-        <div><strong>Agent ${esc(a.id)}</strong> — ${esc(a.checkpoint.summary)}</div>
-        <div class="muted">next: ${esc(a.checkpoint.nextStep)}</div>
-        <div class="row" style="margin-top:6px">
-          <button class="primary" onclick="resolveCp('${esc(a.id)}', true)">Approve</button>
-          <input type="text" id="cp-fb-${esc(a.id)}" placeholder="feedback" />
-          <button onclick="resolveCp('${esc(a.id)}', false)">Send feedback</button>
-        </div>
-      </div>`).join("");
+    el.innerHTML = `<h2>${pending.some(a => a.checkpoint.kind === "question") ? "Waiting on you" : "Checkpoints"}</h2>` + pending.map(a => {
+      const cp = a.checkpoint;
+      const isQ = cp.kind === "question";
+      const header = isQ
+        ? `<div><strong>${esc(roleOf(a.id))} asks:</strong> ${esc(cp.summary)}</div>`
+        : `<div><strong>${esc(roleOf(a.id))} finished:</strong> ${esc(cp.summary)}</div>
+           <div class="why">Wants to do next: ${esc(cp.nextStep)}</div>`;
+      const why = cp.why ? `<div class="why"><b>Why it's asking:</b> ${esc(cp.why)}</div>` : "";
+      const impact = cp.impact ? `<div class="why"><b>If you approve:</b> ${esc(cp.impact)}</div>` : "";
+      const buttons = isQ
+        ? `<input type="text" id="cp-fb-${esc(a.id)}" placeholder="your answer" style="flex:1" />
+           <button class="primary" onclick="resolveCp('${esc(a.id)}', false)">Send answer</button>`
+        : `<button class="primary" onclick="resolveCp('${esc(a.id)}', true)">Approve</button>
+           <input type="text" id="cp-fb-${esc(a.id)}" placeholder="ask a question or give feedback" style="flex:1" />
+           <button onclick="resolveCp('${esc(a.id)}', false)">Send</button>`;
+      return `<div style="margin-bottom:12px">
+        ${header}${why}${impact}
+        <div class="row" style="margin-top:8px">${buttons}</div>
+      </div>`;
+    }).join("");
     return;
   }
   el.className = "panel review"; el.style.display = "none";
 }
 
+// Minimal line-level diff: mark lines added vs the previous revision's content.
+function diffContent(prev, cur) {
+  const prevLines = new Set((prev || "").split("\n").map(l => l.trim()));
+  return cur.split("\n").map(line => {
+    const t = line.trim();
+    if (t && !prevLines.has(t)) return `<span class="add">+ ${esc(line)}</span>`;
+    return `  ${esc(line)}`;
+  }).join("\n");
+}
+
 async function renderContracts() {
-  // Contracts aren't in /api/board; fetch via a lightweight status extension: reuse /api/board?
-  // The hub exposes contracts through the SSE log; we pull the full set from /api/contracts.
   const data = await api("GET", "/api/contracts").catch(() => ({ contracts: [] }));
   const cs = data.contracts || [];
   if (!cs.length) { $("contracts").innerHTML = '<div class="empty">none yet</div>'; return; }
-  $("contracts").innerHTML = cs.map(c => `
+  // Show the latest revision per service as the headline; keep prior revs for the diff.
+  const bySvc = {};
+  for (const c of cs) (bySvc[c.service] = bySvc[c.service] || []).push(c);
+  const cards = Object.entries(bySvc).map(([svc, revs]) => {
+    revs.sort((a, b) => a.revision - b.revision);
+    const latest = revs[revs.length - 1];
+    const prev = revs.length > 1 ? revs[revs.length - 2] : null;
+    const body = prev ? diffContent(prev.content, latest.content) : esc(latest.content);
+    return `
     <details class="contract">
-      <summary>${esc(c.service)} <span class="muted">rev${c.revision} · agent ${esc(c.agentId)}</span></summary>
-      <pre>${esc(c.content)}</pre>
-    </details>`).join("");
+      <summary>
+        <span class="headline">${esc(latest.summary || svc)}</span>
+        <span class="svc">— ${esc(svc)} rev${latest.revision} · agent ${esc(latest.agentId)}${prev ? " · diff vs rev" + prev.revision : ""}</span>
+      </summary>
+      <pre>${body}</pre>
+    </details>`;
+  });
+  $("contracts").innerHTML = cards.join("");
 }
 
 const logLines = [];
@@ -253,13 +409,139 @@ function pushLog(agentId, message) {
   $("log").scrollTop = $("log").scrollHeight;
 }
 
+// ── Setup wizard ──
+async function renderWizard() {
+  if (!cachedRunners) cachedRunners = ((await api("GET", "/api/runners/detect")).runners || [])
+    .filter(r => r.runner !== "cursor-ide"); // not offered in the GUI wizard
+  const cfg = cachedConfig || {};
+  const agents = (cfg.agents && cfg.agents.length >= 2) ? cfg.agents : [
+    { id: "A", workspace: "", runner: "claude-code", role: "Frontend" },
+    { id: "B", workspace: "", runner: "claude-code", role: "Backend" },
+  ];
+  const runnerOpts = (sel) => cachedRunners.map(r =>
+    `<option value="${esc(r.runner)}" ${r.runner === sel ? "selected" : ""}>${esc(r.runner)} ${r.ok ? "✓" : "✗"}</option>`).join("");
+  $("agent-setups").innerHTML = agents.map((a, i) => `
+    <div class="agent-setup">
+      <h3>Agent ${esc(a.id)}</h3>
+      <label>Project folder</label>
+      <div class="field-row">
+        <input type="text" id="w-ws-${i}" value="${esc(a.workspace)}" placeholder="/path/to/project">
+        <button onclick="browseFolder(${i})">Browse…</button>
+      </div>
+      <div class="field-row" style="gap:12px">
+        <div style="flex:1">
+          <label>Runner (which AI)</label>
+          <select id="w-runner-${i}" onchange="loadModels(${i})" style="width:100%">${runnerOpts(a.runner)}</select>
+        </div>
+        <div style="flex:1">
+          <label>Model</label>
+          <select id="w-model-${i}" style="width:100%"><option value="">Default</option></select>
+        </div>
+      </div>
+      <label>Role</label>
+      <input type="text" id="w-role-${i}" value="${esc(a.role)}" placeholder="e.g. Frontend">
+    </div>`).join("");
+  for (let i = 0; i < agents.length; i++) await loadModels(i, agents[i].model);
+  if (cfg.preset) $("w-preset").value = cfg.preset;
+  if (cfg.mode) $("w-mode").value = cfg.mode;
+  const bad = cachedRunners.filter(r => !r.ok && r.runner !== "cursor-ide");
+  $("wizard-err").textContent = bad.length ? `Note: ${bad.map(r => r.runner).join(", ")} not detected — install them or use cursor-ide.` : "";
+}
+
+const modelCache = {};
+async function loadModels(i, selected) {
+  const runner = $(`w-runner-${i}`).value;
+  if (!modelCache[runner]) modelCache[runner] = (await api("GET", "/api/runners/models?runner=" + encodeURIComponent(runner))).models || [{ id: "", label: "Default" }];
+  const sel = $(`w-model-${i}`);
+  sel.innerHTML = modelCache[runner].map(m => `<option value="${esc(m.id)}" ${m.id === (selected || "") ? "selected" : ""}>${esc(m.label)}</option>`).join("");
+}
+
+async function saveWizard() {
+  const agents = ["A", "B"].map((id, i) => ({
+    id,
+    workspace: $(`w-ws-${i}`).value.trim(),
+    runner: $(`w-runner-${i}`).value,
+    model: $(`w-model-${i}`).value || undefined,
+    role: $(`w-role-${i}`).value.trim() || (i === 0 ? "Frontend" : "Backend"),
+  }));
+  if (agents.some(a => !a.workspace)) { $("wizard-err").textContent = "Both agents need a project folder."; return; }
+  const config = {
+    agents,
+    preset: $("w-preset").value,
+    mode: $("w-mode").value,
+    port: (cachedConfig && cachedConfig.port) || Number(location.port) || 3131,
+    claudePermissionMode: (cachedConfig && cachedConfig.claudePermissionMode) || "acceptEdits",
+  };
+  const res = await api("PUT", "/api/config", config);
+  if (res.ok === false) { $("wizard-err").textContent = res.error || "Could not save."; return; }
+  cachedConfig = config; forceWizard = false;
+  route();
+}
+
+function renderStartView() {
+  const a = cachedConfig.agents;
+  $("start-agents").innerHTML = a.map(x => `<b>${esc(x.role)}</b> — ${esc(x.runner)}${x.model ? " · " + esc(x.model) : ""} — ${esc(x.workspace)}`).join("<br>");
+  const cp = [...document.querySelectorAll('input[name="s-mode"]')].find(r => r.value === (cachedConfig.mode || "checkpoint"));
+  if (cp) cp.checked = true;
+}
+
+async function startSession() {
+  const goal = $("s-goal").value.trim();
+  if (!goal) { $("start-err").textContent = "Describe what the agents should build."; return; }
+  const mode = document.querySelector('input[name="s-mode"]:checked').value;
+  const plan = $("s-plan").checked;
+  $("start-err").textContent = "Starting…";
+  const res = await api("POST", "/api/session/start", { goal, plan, mode });
+  if (res.ok !== true) { $("start-err").textContent = res.error || "Could not start."; return; }
+  $("start-err").textContent = "";
+  refresh();
+}
+
+// ── Folder browser (native dialog in Electron, /api/fs/list modal in a plain browser) ──
+let folderTarget = null;
+function joinPath(base, name) { return base.replace(/\/+$/, "") + "/" + name; }
+async function browseFolder(i) {
+  if (window.duoNative && window.duoNative.pickFolder) {
+    const picked = await window.duoNative.pickFolder();
+    if (picked) $(`w-ws-${i}`).value = picked;
+    return;
+  }
+  folderTarget = i;
+  openFolderModal($(`w-ws-${i}`).value || "");
+}
+
+async function openFolderModal(startPath) {
+  const data = await api("GET", "/api/fs/list?path=" + encodeURIComponent(startPath));
+  renderFolderModal(data);
+}
+
+function renderFolderModal(data) {
+  $("folder-modal").innerHTML = `
+    <div class="modal-bg" onclick="if(event.target===this)closeFolderModal()">
+      <div class="modal">
+        <div class="modal-head">Choose a project folder</div>
+        <div class="crumb">${esc(data.path)}</div>
+        <div class="dir-list">
+          ${data.parent ? `<div class="dir-item" onclick="openFolderModal('${esc(data.parent)}')" style="opacity:.8">.. (up)</div>` : ""}
+          ${(data.dirs || []).map(d => `<div class="dir-item" onclick="openFolderModal('${esc(joinPath(data.path, d))}')">${esc(d)}</div>`).join("") || '<div class="empty" style="padding:10px">no subfolders</div>'}
+        </div>
+        <div class="modal-foot">
+          <button onclick="closeFolderModal()">Cancel</button>
+          <button class="primary" onclick="chooseFolder('${esc(data.path)}')">Use this folder</button>
+        </div>
+      </div>
+    </div>`;
+}
+function chooseFolder(path) {
+  if (folderTarget !== null) $(`w-ws-${folderTarget}`).value = path;
+  closeFolderModal();
+}
+function closeFolderModal() { $("folder-modal").innerHTML = ""; folderTarget = null; }
+
 // ── Actions ──
 async function approvePlan() {
-  const assign = {};
-  for (const sel of document.querySelectorAll('[id^="assign-"]')) {
-    if (sel.value) assign[sel.id.replace("assign-", "")] = sel.value;
-  }
-  const res = await api("POST", "/api/plan/approve", { assign });
+  // The hub auto-assigns owners — approval is one click.
+  const res = await api("POST", "/api/plan/approve", {});
   if (res.error) alert("Cannot approve: " + res.error);
 }
 async function planFeedback() {
@@ -272,6 +554,25 @@ async function resolveCp(agentId, approved) {
 }
 async function stopSession() {
   if (confirm("Stop and archive this session?")) await api("POST", "/api/stop");
+}
+
+// ── Native notifications (Electron only — window.duoNative injected by the app's preload) ──
+let lastNotifyKey = "";
+function notifyPending(status, pending) {
+  if (!window.duoNative || !window.duoNative.notify) return;
+  const planWaiting = status.phase === "planning" && status.proposedItems > 0;
+  const key = pending.map(a => a.id + a.checkpoint.timestamp).join("|") + (planWaiting ? "|plan" : "");
+  if (!key || key === lastNotifyKey) return;
+  lastNotifyKey = key;
+  if (pending.length) {
+    const a = pending[0];
+    window.duoNative.notify(
+      a.checkpoint.kind === "question" ? `Agent ${a.id} has a question` : `Agent ${a.id} needs approval`,
+      a.checkpoint.summary || ""
+    );
+  } else if (planWaiting) {
+    window.duoNative.notify("Plan ready for review", "The agents proposed a plan — approve it to start.");
+  }
 }
 
 // ── Live event stream with reconnect ──

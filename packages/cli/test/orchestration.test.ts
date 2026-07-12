@@ -1,71 +1,33 @@
-/** CLI orchestration end-to-end via SessionRun + scripted agents against a real in-process hub.
- *  Covers: register gate, plan→approve→execute→done, --no-plan, and crash auto-resume.
- *  Zero AI tokens.
+/** Phase 6: session lifecycle driven over REST against a HUB that owns the agents.
+ *  The hub's SessionSupervisor launches scripted agents (fake adapter injected at Hub construction),
+ *  so the whole orchestration path is exercised with zero AI tokens — now including the REST
+ *  session-start endpoint that a GUI will use.
  */
 import * as fs from "fs";
-import * as os from "os";
-import * as path from "path";
 import { afterEach, describe, expect, it } from "vitest";
-import { Hub } from "@duo/hub";
-import type { DuoConfig } from "@duo/shared";
 import { HubClient } from "../src/hubClient.js";
-import { SessionRun } from "../src/sessionRunner.js";
 import { ScriptedAdapter, type AgentScript, type ScriptClient } from "./scriptedAgent.js";
+import { bootHub, teardown, waitForPhase, waitForAllRegistered, waitForProposal, finishOwned, type BootedHub } from "./hubHarness.js";
 
-let hub: Hub;
-let home: string;
+let booted: BootedHub | undefined;
 
 afterEach(async () => {
-  await hub?.stop();
-  if (home) fs.rmSync(home, { recursive: true, force: true });
+  await teardown(booted);
+  booted = undefined;
 });
 
-async function makeConfig(): Promise<{ config: DuoConfig; wsA: string; wsB: string }> {
-  home = fs.mkdtempSync(path.join(os.tmpdir(), "duo-cli-"));
-  process.env.DUO_HOME = home;
-  process.env.DUO_LONGPOLL_MS = "800";
-  const wsA = path.join(home, "web");
-  const wsB = path.join(home, "api");
-  fs.mkdirSync(wsA, { recursive: true });
-  fs.mkdirSync(wsB, { recursive: true });
-  const config: DuoConfig = {
-    agents: [
-      { id: "A", workspace: wsA, runner: "fake", role: "Frontend" },
-      { id: "B", workspace: wsB, runner: "fake", role: "Backend" },
-    ],
-    preset: "frontend-backend",
-    mode: "auto-run",
-    port: 0,
-    claudePermissionMode: "acceptEdits",
-  };
-  return { config, wsA, wsB };
+async function boot(adapter: ScriptedAdapter, opts?: { mode?: "auto-run" | "checkpoint" }): Promise<HubClient> {
+  booted = await bootHub(adapter, opts);
+  return booted.client;
 }
 
-async function startHub(persistFile: string): Promise<{ client: HubClient; url: string }> {
-  hub = new Hub({ port: 0, persistFile, restore: false });
-  await hub.start();
-  return { client: new HubClient(hub.url), url: hub.url };
-}
-
-/** Claim and complete every item this agent owns. */
-async function finishOwnedItems(client: ScriptClient): Promise<void> {
-  const board = (await client.getBoard()) as { items: Array<{ id: string; owner: string }> };
-  for (const item of board.items.filter((i) => i.owner === client.id)) {
-    await client.claim(item.id);
-    await client.complete(item.id, [`${item.id}.ts`]);
-  }
-}
-
-describe("SessionRun orchestration (scripted agents)", () => {
-  it("runs plan → approve → execute → done, same processes throughout", async () => {
-    const { config } = await makeConfig();
-    const { client, url } = await startHub(path.join(home, "s.json"));
-
+describe("hub-owned session lifecycle over REST", () => {
+  it("start → plan → approve → execute → done, agents owned by the hub", async () => {
     const scriptA: AgentScript = async (c) => {
       await c.register();
       await c.postPlan([{ title: "Login UI", ownerHint: "A", paths: ["web/"] }]);
       await c.awaitApproval();
-      await finishOwnedItems(c);
+      await finishOwned(c);
     };
     const scriptB: AgentScript = async (c) => {
       await c.register();
@@ -74,127 +36,102 @@ describe("SessionRun orchestration (scripted agents)", () => {
         { title: "Deploy secrets", ownerHint: null, paths: ["infra/"] },
       ]);
       await c.awaitApproval();
-      await c.postContract("service: auth-api\nPOST /auth/login → { token }");
-      await finishOwnedItems(c);
+      await c.postContract("service: auth-api\nPOST /auth/login → { token }", "api");
+      await finishOwned(c);
     };
-
     const adapter = new ScriptedAdapter({ scripts: { A: scriptA, B: scriptB } });
-    const run = new SessionRun(config, client, url, () => adapter, {
+    const client = await boot(adapter);
+
+    const started = (await client.post("/api/session/start", {
       goal: "Add auth",
       plan: true,
+      autoApproveTrivial: false,
       registrationTimeoutMs: 5000,
-    });
+    })) as { ok?: boolean };
+    expect(started.ok).toBe(true);
 
-    await run.start();
-
-    // Registration gate passed; planning phase, plan merged with one unassigned item.
-    let status = (await client.status()) as { phase: string; agents: Array<{ registered: boolean }> };
-    expect(status.phase).toBe("planning");
-    expect(status.agents.every((a) => a.registered)).toBe(true);
-    expect(adapter.configureCalls.length).toBe(2);
+    await waitForAllRegistered(client);
+    await waitForProposal(client, 3);
+    expect(adapter.configureCalls.length).toBe(2); // hub configured both agents
 
     const board = (await client.board()) as { plan: { unassigned: string[] } };
     expect(board.plan.unassigned).toHaveLength(1);
-
-    // Human approves, assigning the unassigned item to B.
     const approve = await client.approvePlan({ assign: { [board.plan.unassigned[0]]: "B" } });
     expect(approve.ok).toBe(true);
 
-    await run.waitUntilDone();
-    status = (await client.status()) as { phase: string; agents: Array<{ registered: boolean }> };
-    expect(status.phase).toBe("done");
-    await run.stop();
+    await waitForPhase(client, "done");
   });
 
-  it("--no-plan executes the preset board without a planning phase", async () => {
-    const { config } = await makeConfig();
-    const { client, url } = await startHub(path.join(home, "s.json"));
-
+  it("--no-plan executes the preset board (no planning phase)", async () => {
     const script: AgentScript = async (c) => {
       await c.register();
-      await finishOwnedItems(c);
+      await finishOwned(c);
     };
-    const adapter = new ScriptedAdapter({ scripts: { A: script, B: script } });
-    const run = new SessionRun(config, client, url, () => adapter, {
-      goal: "Fix typo",
-      plan: false,
-      registrationTimeoutMs: 5000,
-    });
-
-    await run.start();
-    // No planning phase: goes straight to executing (may already be done — agents are instant).
-    const status = (await client.status()) as { phase: string; proposedItems: number };
-    expect(["executing", "done"]).toContain(status.phase);
-    expect(status.proposedItems).toBe(0); // board was preset-filled, never proposed
-    await run.waitUntilDone();
-    expect(((await client.status()) as { phase: string }).phase).toBe("done");
-    await run.stop();
+    const client = await boot(new ScriptedAdapter({ scripts: { A: script, B: script } }));
+    const started = (await client.post("/api/session/start", { goal: "Fix typo", plan: false, registrationTimeoutMs: 5000 })) as { ok?: boolean };
+    expect(started.ok).toBe(true);
+    await waitForPhase(client, "done");
+    const s = (await client.status()) as { proposedItems: number };
+    expect(s.proposedItems).toBe(0);
   });
 
-  it("fails loudly if an agent never registers", async () => {
-    const { config } = await makeConfig();
-    const { client, url } = await startHub(path.join(home, "s.json"));
-
-    const goodScript: AgentScript = async (c) => {
+  it("surfaces a launch failure via status.launchError (loud, no hang)", async () => {
+    const good: AgentScript = async (c) => {
       await c.register();
-      await finishOwnedItems(c);
+      await finishOwned(c);
     };
-    const silentScript: AgentScript = async () => {
-      // never registers, never returns until stopped
-      await new Promise((r) => setTimeout(r, 10_000));
+    const silent: AgentScript = async () => {
+      await new Promise((r) => setTimeout(r, 10_000)); // never registers
     };
-    const adapter = new ScriptedAdapter({ scripts: { A: goodScript, B: silentScript } });
-    const run = new SessionRun(config, client, url, () => adapter, {
-      goal: "goal",
-      plan: false,
-      registrationTimeoutMs: 1000,
-    });
+    const client = await boot(new ScriptedAdapter({ scripts: { A: good, B: silent } }));
+    await client.post("/api/session/start", { goal: "goal", plan: false, registrationTimeoutMs: 600 });
 
-    await expect(run.start()).rejects.toThrow(/did not register/);
-    await run.stop();
+    const start = Date.now();
+    let err: string | null = null;
+    while (Date.now() - start < 4000) {
+      const s = (await client.status()) as { launchError?: string | null };
+      if (s.launchError) { err = s.launchError; break; }
+      await new Promise((r) => setTimeout(r, 60));
+    }
+    expect(err).toContain("did not register");
+    expect(err).toContain("B");
   });
 
   it("auto-resumes a crashed agent from its resume brief", async () => {
-    const { config } = await makeConfig();
-    const { client, url } = await startHub(path.join(home, "s.json"));
-
-    // A crashes after claiming (returns without completing) → premature exit → auto-resume.
     const crashOnce: AgentScript = async (c) => {
       await c.register();
       const board = (await c.getBoard()) as { items: Array<{ id: string; owner: string }> };
-      const mine = board.items.find((i) => i.owner === "A")!;
-      await c.claim(mine.id);
-      return; // "crash" — item left claimed, not done
+      await c.claim(board.items.find((i) => i.owner === "A")!.id);
+      return; // crash: item left claimed
     };
     const resumeA: AgentScript = async (c) => {
       await c.register();
       const brief = (await c.resumeBrief()) as { brief: string };
       if (!brief.brief.includes("Add auth")) throw new Error("resume brief missing goal");
-      await finishOwnedItems(c); // reopened item gets re-claimed and completed
+      await finishOwned(c);
     };
     const scriptB: AgentScript = async (c) => {
       await c.register();
-      await finishOwnedItems(c);
+      await finishOwned(c);
     };
+    const adapter = new ScriptedAdapter({ scripts: { A: crashOnce, B: scriptB }, resumeScripts: { A: resumeA } });
+    const client = await boot(adapter);
+    await client.post("/api/session/start", { goal: "Add auth", plan: false, registrationTimeoutMs: 5000 });
+    await waitForPhase(client, "done", 8000);
+  });
 
-    const adapter = new ScriptedAdapter({
-      scripts: { A: crashOnce, B: scriptB },
-      resumeScripts: { A: resumeA },
-    });
-    const lines: string[] = [];
-    const run = new SessionRun(config, client, url, () => adapter, {
-      goal: "Add auth",
-      plan: false,
-      registrationTimeoutMs: 5000,
-      maxResumes: 2,
-      onLine: (id, line) => lines.push(`${id}: ${line}`),
-    });
-
-    await run.start();
-    await run.waitUntilDone();
-
-    expect(((await client.status()) as { phase: string }).phase).toBe("done");
-    expect(lines.some((l) => l.includes("resuming from brief"))).toBe(true);
-    await run.stop();
+  it("stop over REST terminates agents and archives", async () => {
+    const script: AgentScript = async (c) => {
+      await c.register();
+      // linger so the session is still active when we stop it
+      await new Promise((r) => setTimeout(r, 5000));
+    };
+    const client = await boot(new ScriptedAdapter({ scripts: { A: script, B: script } }));
+    await client.post("/api/session/start", { goal: "goal", plan: false, registrationTimeoutMs: 5000 });
+    await waitForAllRegistered(client);
+    const res = (await client.stopSession()) as { ok?: boolean; archive?: string | null };
+    expect(res.ok).toBe(true);
+    expect(res.archive && fs.existsSync(res.archive)).toBe(true);
+    expect(((await client.status()) as { active: boolean }).active).toBe(false);
   });
 });

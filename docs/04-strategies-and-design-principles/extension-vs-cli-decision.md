@@ -58,3 +58,17 @@ Reopen the native-app question only if one of these becomes true:
 2. An OS capability becomes load-bearing (e.g. native notifications for checkpoint approvals
    turn out to be the difference between gates working and gates ignored).
 3. Distribution requires an artifact npm can't provide (enterprise packaging).
+
+## 2026-07 update: trigger 1 fired — decision revised
+
+First real-user feedback after v1: the CLI surface is too hard (too many commands, no visual
+folder/agent/role setup), and a desktop app was explicitly requested. Triggers 1 and 2 (native
+notifications for approvals) both apply. The revised decision:
+
+- **Desktop app approved** — [phase 7](../05-implementation-plan/phase-07-desktop-app.md),
+  **Electron** rather than the Tauri guess above: the hub is a Node library, so Electron runs it
+  in-process (no sidecar binary, no second language). Trade-off (footprint vs. simplicity)
+  recorded in the phase doc.
+- The core of *this* document survives: the app is a **shell over the same REST/SSE surface and
+  the same UI codebase** as the browser dashboard; the CLI remains a full-parity client for
+  power users and scripting. What's abandoned is only "browser is enough."

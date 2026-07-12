@@ -29,6 +29,55 @@ loud, specific error naming the likely cause, no hang.
 via `mcp enable`; launch also passes `--approve-mcps`). Held vs polling untested for cursor under
 plan mode — this run used `--no-plan`.
 
+## 2026-07 — Phase 5 (legible contracts + approvals) — dashboard verified
+
+**How:** scripted MCP clients (demo-driver) posting the new v2 fields, driven through the browser
+dashboard end to end (plan → approve → checkpoint → done).
+
+**Verified live in the browser:**
+- Plan summaries render in plain language above the item list ("I'll add a 'Sign in with Google'
+  button, handle the redirect back, and store the session securely").
+- Contract card headline is the plain-language `summary` ("After Google sign-in, the callback
+  returns a login token plus the user's id and email"), not a raw blob; activity log shows it too.
+- Checkpoint card shows **Why it's asking** / **If you approve** in non-engineer language; the
+  full plan→approve→checkpoint→done cycle was driven from the dashboard.
+- Ask-a-question loop (kind:"question" → answer via feedback) covered by the tokenless suite.
+
+**Pending (opt-in real-AI run):** confirm real agents *fill* `summary`/`why`/`impact`/`plan_summary`
+usefully — this phase's real risk is prompt compliance, not plumbing. Prompts are golden-tracked
+and ready to iterate against a live run.
+
+## 2026-07 — Phase 6 (hub-owned sessions) — endpoints verified
+
+**How:** the full session lifecycle is now driven over REST against a hub that owns the agents;
+the tokenless CLI suite exercises `/api/session/start|stop|resume` end to end with scripted agents.
+Setup endpoints smoke-tested against a real daemon:
+- `/api/runners/detect` → claude-code 2.1.200 ✓, cursor-cli 2026.07.09 ✓, cursor-ide (manual) ✓
+- `/api/fs/list` → home-sandboxed (parent=null at home; `/etc` traversal rejected)
+- `/api/session/start` validation → 409 without config, 400 without a goal; `/api/config` PUT ok
+- `GET /` dashboard → 200
+
+**Pending (opt-in real-AI run):** a live claude↔cursor session started via `curl` to
+`/api/session/start` reaching `done` — the token-spending confirmation of the moved boundary.
+
+## 2026-07 — Phase 7 (desktop app) — GUI control-plane verified in browser
+
+**Verified live in the browser** (the dashboard is also the app's UI):
+- Setup **wizard** renders when no config exists — per-agent folder field + Browse button, runner
+  dropdowns with live detection (claude-code ✓, cursor-cli ✓, cursor-ide ✓), roles, preset, mode.
+- **Folder browser** (the requested feature): opened at `/Users/Apple`, listed real directories,
+  navigated into `Projects`, and "Use this folder" wrote the path back into the field and closed.
+- Save → transitioned to the **start screen** showing the configured agents; start posts to
+  `/api/session/start`.
+
+**Electron shell:** built and typechecked (`tsc -p app` clean) — in-process hub (attach-or-start),
+window loads the localhost dashboard, preload bridge exposes `duoNative.pickFolder` (native OS
+dialog) + `duoNative.notify` (OS notifications), tray. Not auto-launched (GUI window on the user's
+machine).
+
+**Pending (opt-in):** launch the Electron window on a real display; `electron-builder` installer
+smoke on clean macOS + Linux.
+
 ## Matrix status
 
 | A | B | Status |

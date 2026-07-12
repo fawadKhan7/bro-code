@@ -15,7 +15,7 @@ import { spawn, spawnSync, type ChildProcess } from "child_process";
 import { EventEmitter } from "events";
 import * as path from "path";
 import type { AgentAdapter, AgentHandle, DetectResult, LaunchContext } from "./types.js";
-import { detectBinary, makeLineReader, mergeMcpConfig, summarizeCursorStreamLine } from "./common.js";
+import { detectBinary, extractUsageTokens, makeLineReader, mergeMcpConfig, summarizeCursorStreamLine } from "./common.js";
 
 function cursorBin(): string {
   return process.env.DUO_CURSOR_BIN ?? "cursor-agent";
@@ -33,6 +33,8 @@ class CursorProcessHandle implements AgentHandle {
 
   constructor(readonly agentId: string, private child: ChildProcess) {
     const onOut = makeLineReader((line) => {
+      const tokens = extractUsageTokens(line);
+      if (tokens) this.events.emit("usage", tokens);
       const summary = summarizeCursorStreamLine(line);
       if (summary) this.events.emit("output", summary);
     });
@@ -100,6 +102,8 @@ export class CursorCliAdapter implements AgentAdapter {
       "--approve-mcps",
       "--trust",
     ];
+    const model = ctx.agent.model || (ctx.runnerOptions?.model as string | undefined);
+    if (model) args.push("--model", model);
     const child = spawn(cursorBin(), args, {
       cwd: ctx.agent.workspace,
       stdio: ["ignore", "pipe", "pipe"],

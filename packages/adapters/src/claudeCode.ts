@@ -16,7 +16,7 @@ import { spawn, type ChildProcess } from "child_process";
 import { EventEmitter } from "events";
 import * as path from "path";
 import type { AgentAdapter, AgentHandle, DetectResult, LaunchContext } from "./types.js";
-import { detectBinary, makeLineReader, mergeMcpConfig, summarizeClaudeStreamLine } from "./common.js";
+import { detectBinary, extractUsageTokens, makeLineReader, mergeMcpConfig, summarizeClaudeStreamLine } from "./common.js";
 
 /** Read at call time so DUO_CLAUDE_BIN can point at a test/alternate binary. */
 function claudeBin(): string {
@@ -34,6 +34,8 @@ class ClaudeProcessHandle implements AgentHandle {
 
   constructor(readonly agentId: string, private child: ChildProcess) {
     const onOut = makeLineReader((line) => {
+      const tokens = extractUsageTokens(line);
+      if (tokens) this.events.emit("usage", tokens);
       const summary = summarizeClaudeStreamLine(line);
       if (summary) this.events.emit("output", summary);
     });
@@ -63,7 +65,7 @@ class ClaudeProcessHandle implements AgentHandle {
 
 /** Pure arg builder — exported for unit testing (pins the --allowedTools MCP fix). */
 export function buildClaudeArgs(ctx: LaunchContext, permissionMode: string): string[] {
-  return [
+  const args = [
     "-p",
     ctx.kickoffPrompt,
     "--output-format",
@@ -77,6 +79,9 @@ export function buildClaudeArgs(ctx: LaunchContext, permissionMode: string): str
     "--mcp-config",
     path.join(ctx.agent.workspace, ".mcp.json"),
   ];
+  const model = ctx.agent.model || (ctx.runnerOptions?.model as string | undefined);
+  if (model) args.push("--model", model);
+  return args;
 }
 
 export class ClaudeCodeAdapter implements AgentAdapter {

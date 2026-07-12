@@ -54,8 +54,19 @@ export function createToolset(store: SessionStore): ToolDef[] {
       shape: {
         agent_id: z.string(),
         items: z.array(planItemSchema).describe("Task items. Titles + paths only — no essays."),
+        plan_summary: z
+          .string()
+          .optional()
+          .describe(
+            "2-3 plain-language sentences for the human reviewer: what you'll build and in what order. Not for the items — for the person deciding whether to approve."
+          ),
       },
-      handler: (a) => store.postPlan(String(a.agent_id), (a.items ?? []) as never),
+      handler: (a) =>
+        store.postPlan(
+          String(a.agent_id),
+          (a.items ?? []) as never,
+          a.plan_summary === undefined ? undefined : String(a.plan_summary)
+        ),
     },
     {
       name: "await_plan_approval",
@@ -97,10 +108,16 @@ export function createToolset(store: SessionStore): ToolDef[] {
     {
       name: "post_contract",
       description:
-        "Share an interface/agreement (API shapes, schemas, formats) the moment it is DECIDED — before it is implemented. Versioned, hashed, mirrored to contracts/<service>.md in your workspace.",
+        "Share an interface/agreement (API shapes, schemas, formats) the moment it is DECIDED — before it is implemented. Versioned, hashed, mirrored to contracts/<service>.md in your workspace. Structure the content as: 'What was decided' / 'The interface' / 'Example'.",
       shape: {
         agent_id: z.string(),
-        content: z.string().describe("The contract text. May include a 'service: slug' line."),
+        summary: z
+          .string()
+          .optional()
+          .describe(
+            "ONE plain-language sentence stating what was decided, for a human reader — always provide it. E.g. 'Login returns a JWT token plus the user's id and email.'"
+          ),
+        content: z.string().describe("The full contract text (What was decided / The interface / Example). May include a 'service: slug' line."),
         title: z.string().optional(),
         service: z.string().optional().describe("Slug for contracts/<service>.md. One slug per topic."),
       },
@@ -109,7 +126,8 @@ export function createToolset(store: SessionStore): ToolDef[] {
           String(a.agent_id),
           String(a.content ?? ""),
           a.title === undefined ? undefined : String(a.title),
-          a.service === undefined ? undefined : String(a.service)
+          a.service === undefined ? undefined : String(a.service),
+          a.summary === undefined ? undefined : String(a.summary)
         ),
     },
     {
@@ -138,18 +156,32 @@ export function createToolset(store: SessionStore): ToolDef[] {
     {
       name: "post_checkpoint",
       description:
-        "CHECKPOINT mode: pause before/after major or irreversible work. Two lines: what you did, what you'll do next. Then call get_checkpoint_status.",
+        "Pause for the user before/after major or irreversible work — OR to ask a question. Write for a non-engineer: plain language, no jargon. Then poll get_checkpoint_status. Set kind:'question' when you only need an answer (you will take no action until the user replies via feedback).",
       shape: {
         agent_id: z.string(),
-        summary: z.string().describe("What you completed."),
-        next_step: z.string().describe("What you intend to do next."),
+        summary: z.string().describe("What you completed (plain language)."),
+        next_step: z.string().describe("What you intend to do next (plain language)."),
+        why: z
+          .string()
+          .optional()
+          .describe("Why you're pausing / what the user's approval means. Plain language, no jargon."),
+        impact: z.string().optional().describe("What happens if the user approves. Plain language."),
+        kind: z
+          .enum(["checkpoint", "question"])
+          .optional()
+          .describe("'question' = you're only asking; take no action until answered via feedback."),
       },
-      handler: (a) => store.postCheckpoint(String(a.agent_id), String(a.summary ?? ""), String(a.next_step ?? "")),
+      handler: (a) =>
+        store.postCheckpoint(String(a.agent_id), String(a.summary ?? ""), String(a.next_step ?? ""), {
+          why: a.why === undefined ? undefined : String(a.why),
+          impact: a.impact === undefined ? undefined : String(a.impact),
+          kind: a.kind === "question" ? "question" : "checkpoint",
+        }),
     },
     {
       name: "get_checkpoint_status",
       description:
-        "Check your pending checkpoint: pending | approved | feedback (+ feedback text). Pass wait:true to block until resolved (retry on {pending:true}).",
+        "Check your pending checkpoint/question: pending | approved | feedback (+ feedback text). For a question, wait for status 'feedback' — that carries the user's answer — then act on it. Pass wait:true to block until resolved (retry on {pending:true}).",
       shape: { agent_id: z.string(), wait: z.boolean().optional() },
       handler: (a) =>
         a.wait === true

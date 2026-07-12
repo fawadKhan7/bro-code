@@ -54,24 +54,37 @@ await B.call("post_update", { agent_id: "B", message: "exploring the api workspa
 await A.call("post_plan", { agent_id: "A", items: [
   { title: "Google login button + consent redirect", ownerHint: "A", paths: ["src/pages/login/"] },
   { title: "Store session token (httpOnly cookie)", ownerHint: "A", paths: ["src/lib/auth.ts"] },
-]});
+], plan_summary: "I'll add a 'Sign in with Google' button, handle the redirect back, and store the session securely in the browser." });
 await B.call("post_plan", { agent_id: "B", items: [
   { title: "/auth/google + callback route", ownerHint: "B", paths: ["src/auth/"] },
   { title: "users.google_id migration", ownerHint: "B", paths: ["migrations/"] },
   { title: "Deploy secrets for GOOGLE_CLIENT_ID/SECRET", ownerHint: null, paths: ["infra/"] },
-]});
+], plan_summary: "I'll build the Google auth routes, add a database column to link Google accounts, and flag that deploy secrets need setup." });
 console.log("→ Plan posted (1 unassigned item). Approve it in the dashboard.");
 
 // Each agent waits for approval, then executes; B pauses at a checkpoint.
 async function run(agent, isB) {
   for (;;) { const d = await agent.call("await_plan_approval", { agent_id: agent.id }); if (!d.pending) break; }
   const board = await agent.call("get_board");
-  if (isB) await agent.call("post_contract", { agent_id: "B", service: "auth-api", content: "GET /auth/google/callback → { token, user: { id, email } }" });
+  if (isB) {
+    await agent.call("post_contract", {
+      agent_id: "B",
+      service: "auth-api",
+      summary: "After Google sign-in, the callback returns a login token plus the user's id and email.",
+      content: "What was decided: the Google OAuth callback issues a session token.\nThe interface: GET /auth/google/callback → { token, user: { id, email } }\nExample: { token: 'eyJ...', user: { id: 42, email: 'a@b.com' } }",
+    });
+  }
   for (const item of board.items.filter((i) => i.owner === agent.id)) {
     await agent.call("claim_task", { agent_id: agent.id, task_id: item.id });
     await agent.call("post_update", { agent_id: agent.id, message: `working on ${item.title}` });
     if (isB && item.title.includes("migration")) {
-      await agent.call("post_checkpoint", { agent_id: "B", summary: "Auth API + callback done, contract posted", next_step: "Run users.google_id migration on dev DB" });
+      await agent.call("post_checkpoint", {
+        agent_id: "B",
+        summary: "Google auth is built and the account-linking column is ready to add",
+        next_step: "Run the database migration that adds the google_id column",
+        why: "This changes the database structure, so I'm checking before touching your data.",
+        impact: "The users table gets a new 'google_id' column. Existing rows keep their data; nothing is deleted.",
+      });
       console.log("→ Checkpoint posted by B. Approve/feedback it in the dashboard.");
       for (;;) { const s = await agent.call("get_checkpoint_status", { agent_id: "B", wait: true }); if (s.status !== "pending") break; }
     }

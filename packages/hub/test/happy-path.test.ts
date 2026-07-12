@@ -41,21 +41,14 @@ describe("happy path — plan → approve → execute → done", () => {
     expect(plan.unassigned).toHaveLength(1);
   });
 
-  it("blocks approval while an item is unassigned", async () => {
-    const res = await h.human.approvePlan({});
-    expect(res.ok).toBe(false);
-    expect(String(res.error)).toContain("unassigned");
-  });
-
-  it("held await_plan_approval resolves when the human approves with an assignment", async () => {
+  it("one-click approve auto-assigns unowned items to their proposer (no human assignment needed)", async () => {
     const waitingA = a.awaitPlanApprovalUntilDecided();
     const waitingB = b.awaitPlanApprovalUntilDecided();
 
-    // Give the held calls a moment to attach, then approve.
+    // Give the held calls a moment to attach, then approve with NO assignment.
     await new Promise((r) => setTimeout(r, 150));
-    const plan = (await a.planStatus()) as { unassigned: string[] };
-    const approve = await h.human.approvePlan({ assign: { [plan.unassigned[0]]: "B" } });
-    expect(approve.ok).toBe(true);
+    const approve = await h.human.approvePlan({});
+    expect(approve.ok).toBe(true); // no longer blocked on unassigned items
 
     const [decA, decB] = await Promise.all([waitingA, waitingB]);
     expect(decA.approved).toBe(true);
@@ -65,9 +58,10 @@ describe("happy path — plan → approve → execute → done", () => {
     expect(status.phase).toBe("executing");
   });
 
-  it("agents claim their own items", async () => {
+  it("agents claim their own items — every item now has an owner", async () => {
     const board = (await a.getBoard()) as { items: Array<{ id: string; owner: string }> };
     expect(board.items).toHaveLength(5);
+    expect(board.items.every((i) => i.owner === "A" || i.owner === "B")).toBe(true); // auto-assigned
 
     for (const item of board.items) {
       const claimer = item.owner === "A" ? a : b;

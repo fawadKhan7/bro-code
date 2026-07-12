@@ -30,6 +30,15 @@ user:  duo approve            → { status: "approved" }            agent contin
 - **Two session modes** (from generation 1): `auto-run` (no mid-task pauses) and `checkpoint`
   (pause at milestones / before irreversible actions). Mode is set at `duo start` and stated in
   the kickoff.
+- **`why` / `impact` (v2)** — a checkpoint carries, in plain non-engineer language, *why the agent
+  is pausing / what your approval means* (`why`) and *what happens if you approve* (`impact`). The
+  dashboard renders them as "Why it's asking:" / "If you approve:" so the user understands the
+  decision, not just the action.
+- **`kind: "question"` (v2)** — the agent can pause purely to *ask* the user something, taking no
+  action until the answer arrives via feedback. The dashboard shows an "asks:" card with a "Send
+  answer" box; the agent reads the answer through `get_checkpoint_status` (status `feedback`) and
+  proceeds. This is the "ask a question before approving" loop — one channel, no new machinery.
+  See [../05-implementation-plan/phase-05-legible-contracts-and-approvals.md](../05-implementation-plan/phase-05-legible-contracts-and-approvals.md).
 - **Plan approval is a checkpoint** — the same machinery gates the transition from planning to
   executing ([planning-phase.md](planning-phase.md)).
 - **Resume includes a brief**: on approval after feedback, the agent gets a condensed context

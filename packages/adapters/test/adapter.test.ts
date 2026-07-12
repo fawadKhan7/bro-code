@@ -5,7 +5,7 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import { afterEach, describe, expect, it } from "vitest";
-import { mergeMcpConfig, summarizeClaudeStreamLine, makeLineReader } from "../src/common.js";
+import { mergeMcpConfig, summarizeClaudeStreamLine, makeLineReader, extractUsageTokens } from "../src/common.js";
 import { ClaudeCodeAdapter, buildClaudeArgs } from "../src/claudeCode.js";
 import { getAdapter, hasAdapter, knownRunners } from "../src/registry.js";
 import type { LaunchContext } from "../src/types.js";
@@ -85,6 +85,43 @@ describe("makeLineReader", () => {
     read(Buffer.from("lo\nwor"));
     read(Buffer.from("ld\n"));
     expect(seen).toEqual(["hello", "world"]);
+  });
+});
+
+describe("extractUsageTokens", () => {
+  it("sums Claude snake_case usage from a result event", () => {
+    const line = JSON.stringify({
+      type: "result",
+      usage: { input_tokens: 100, output_tokens: 20, cache_read_input_tokens: 5, cache_creation_input_tokens: 3, service_tier: "standard" },
+    });
+    expect(extractUsageTokens(line)).toBe(128);
+  });
+  it("sums cursor camelCase usage from a result event", () => {
+    const line = JSON.stringify({
+      type: "result",
+      usage: { inputTokens: 200, outputTokens: 37, cacheReadTokens: 10, cacheWriteTokens: 0 },
+    });
+    expect(extractUsageTokens(line)).toBe(247);
+  });
+  it("ignores lines without usage", () => {
+    expect(extractUsageTokens(JSON.stringify({ type: "assistant" }))).toBeNull();
+    expect(extractUsageTokens("not json")).toBeNull();
+  });
+});
+
+describe("model flag", () => {
+  it("buildClaudeArgs appends --model when the agent has one", () => {
+    const base: LaunchContext = {
+      agent: { id: "A", workspace: "/w", runner: "claude-code", role: "R" },
+      kickoffPrompt: "go",
+      hubUrl: "http://127.0.0.1:3131",
+      toolPrefix: "duo",
+    };
+    expect(buildClaudeArgs(base, "acceptEdits")).not.toContain("--model");
+    const withModel = buildClaudeArgs({ ...base, agent: { ...base.agent, model: "opus" } }, "acceptEdits");
+    const i = withModel.indexOf("--model");
+    expect(i).toBeGreaterThan(-1);
+    expect(withModel[i + 1]).toBe("opus");
   });
 });
 

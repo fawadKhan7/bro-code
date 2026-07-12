@@ -7,10 +7,12 @@
     "shared",
     "hub",
     "adapters",
-    "cli"
+    "cli",
+    "app"
   ],
   "scripts": {
     "build": "tsc -b shared hub adapters cli",
+    "build:app": "npm run build && tsc -p app",
     "clean": "tsc -b shared hub adapters cli --clean",
     "test": "npm run build && vitest run --root shared && vitest run --root adapters && vitest run --root hub && vitest run --root cli",
     "test:watch": "vitest --root hub"

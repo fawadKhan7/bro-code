@@ -1,0 +1,42 @@
+{
+  "name": "@duo/app",
+  "version": "0.1.0",
+  "description": "Duo desktop app (Electron) — setup wizard, native folder picker, session control, OS notifications",
+  "private": true,
+  "type": "module",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc -b",
+    "start": "npm run build && electron .",
+    "dist": "npm run build && electron-builder"
+  },
+  "dependencies": {
+    "@duo/hub": "^0.1.0",
+    "@duo/shared": "^0.1.0"
+  },
+  "devDependencies": {
+    "electron": "^31.7.7",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.duo.app",
+    "productName": "Duo",
+    "files": [
+      "dist/**",
+      "node_modules/**"
+    ],
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "category": "public.app-category.developer-tools"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Development"
+    }
+  }
+}

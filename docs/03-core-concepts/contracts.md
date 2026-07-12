@@ -40,6 +40,12 @@ Key properties (implementation exists in [`src/contractDisk.ts`](../../src/contr
   travels over MCP (from Conductor).
 - **Delta reads** — `since_version` parameter (from Conductor), new in the merged system for
   contracts specifically (generation 1 returned everything).
+- **`summary` (v2)** — one plain-language sentence stating *what was decided*, for a human reader
+  (e.g. *"Login returns a JWT token plus the user's id and email."*). Optional in the schema but
+  prompt-required; the dashboard uses it as the contract card's headline, and the activity log
+  shows it inline. The kickoff also instructs a fixed body shape: **What was decided / The
+  interface / Example**. This is the fix for "contracts read as foggy blobs"
+  ([../05-implementation-plan/phase-05-legible-contracts-and-approvals.md](../05-implementation-plan/phase-05-legible-contracts-and-approvals.md)).
 
 ## How it interacts with other components
 

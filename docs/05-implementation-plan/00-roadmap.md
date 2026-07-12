@@ -71,6 +71,21 @@ Existing code (`src/`, `conductor/`) stays untouched as reference until parity, 
   visible in diffs.
 - Any discovered scope beyond a phase's document goes to the backlog, not into the phase.
 
+## v2 — UX upgrade (driven by first real-user feedback, 2026-07)
+
+Feedback after live v1 use: (1) the CLI is too hard for non-terminal users — a **desktop app**
+is wanted for folder/agent/role setup; (2) contracts are foggy — unclear *what was decided*;
+(3) approvals don't explain what the user is deciding. Plan:
+
+| Phase | Deliverable | Size | Status |
+|---|---|---|---|
+| [5 — Legible contracts & approvals](phase-05-legible-contracts-and-approvals.md) | `summary`/`why`/`impact`/`plan_summary` fields + prompts + dashboard cards + ask-a-question loop | Small | ✅ done — dashboard verified; real-AI prompt-compliance run pending |
+| [6 — Hub-owned sessions](phase-06-hub-owned-sessions.md) | Agent lifecycle moves CLI → hub; full session control over REST; GUI prerequisite | Medium | ✅ done — REST lifecycle + setup endpoints; tokenless suite drives it; real curl-started run pending |
+| [7 — Desktop app](phase-07-desktop-app.md) | Electron app (macOS+Linux): wizard, native folder picker, session control, OS notifications — zero terminal | Large | ◐ in progress — dashboard control-plane (wizard + folder browser + start) verified in-browser; Electron shell built; installer smoke on a clean machine pending |
+
+Sequencing: 5 → 6 → 7, each a prerequisite of the next (the app renders phase-5's cards and
+drives phase-6's endpoints). The npm publish from phase 4 remains pending and is independent.
+
 ## Post-v1 backlog (recorded, deliberately deferred)
 
 - Scanner language coverage (Python/Go/Java; Next.js/FastAPI routes) — fast-follow after phase 4.

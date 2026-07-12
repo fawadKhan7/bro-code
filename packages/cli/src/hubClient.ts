@@ -37,6 +37,21 @@ export class HubClient {
   createSession(body: unknown) {
     return this.post("/api/session", body);
   }
+  startSession(body: { goal: string; plan: boolean; mode?: string }) {
+    return this.post("/api/session/start", body);
+  }
+  stopSession() {
+    return this.post("/api/session/stop", {});
+  }
+  resumeAgent(agentId: string) {
+    return this.post("/api/session/resume", { agent_id: agentId });
+  }
+  getConfig() {
+    return this.get("/api/config");
+  }
+  detectRunners() {
+    return this.get("/api/runners/detect");
+  }
   approvePlan(edits: unknown) {
     return this.post("/api/plan/approve", edits);
   }

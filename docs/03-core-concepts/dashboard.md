@@ -19,6 +19,17 @@ Linux, and if a native shell is ever justified, it wraps this same page (Tauri) 
 Decision detail:
 [extension-vs-cli-decision.md](../04-strategies-and-design-principles/extension-vs-cli-decision.md).
 
+## Also the desktop app's UI (v2, phase 7)
+
+The same page is the renderer for the [Electron desktop app](../../packages/app/) — the app runs
+the hub in-process and loads this page at localhost, so there is **one UI codebase** for browser
+and app. The page feature-detects `window.duoNative` (injected by the app's preload bridge): in
+the app, the wizard's "Browse…" uses the **native OS folder dialog** and approvals fire **OS
+notifications**; in a plain browser it falls back to the `/api/fs/list` folder browser and in-page
+cards. Since phase 6 the page is a full control plane, not just a monitor: a **setup wizard**
+(folder pickers, runner detection, roles → `PUT /api/config`) and a **start screen** (goal, mode,
+`POST /api/session/start`) precede the live session view.
+
 ## How it works
 
 - **Served by the hub** (`GET /`) as static HTML/JS/CSS — no separate process, no port, no CORS.

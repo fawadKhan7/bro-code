@@ -13,10 +13,9 @@ import {
 } from "./commands/control.js";
 import { cmdResume } from "./commands/resume.js";
 import { cmdDoctor } from "./commands/doctor.js";
+import { cmdOpen } from "./commands/open.js";
 
-export { SessionRun, defaultAdapterResolver, type AdapterResolver } from "./sessionRunner.js";
 export { HubClient } from "./hubClient.js";
-export * from "./kickoffAssembly.js";
 
 interface ParsedFlags {
   positionals: string[];
@@ -63,6 +62,7 @@ function parseList(value: string | boolean | undefined): string[] | undefined {
 const HELP = `duo — multi-agent AI collaboration
 
 Usage:
+  duo                               Open the dashboard (starts the hub)
   duo init                          Configure agents (interactive)
   duo start "<goal>" [--no-plan] [--mode checkpoint|auto-run]
   duo plan                          Review the proposed board
@@ -132,8 +132,11 @@ async function main(): Promise<void> {
     case "doctor":
       return cmdDoctor();
 
-    case "help":
+    case "open":
     case undefined:
+      return cmdOpen();
+
+    case "help":
     case "--help":
     case "-h":
       return void console.log(HELP);

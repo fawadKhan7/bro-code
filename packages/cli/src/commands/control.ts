@@ -98,9 +98,10 @@ export async function cmdOutOfScope(taskIds: string[]): Promise<void> {
 
 export async function cmdStop(clean: boolean): Promise<void> {
   const { hub, config } = await requireHub();
-  const res = (await hub.stop()) as { ok?: boolean; archive?: string | null };
+  // Hub-owned agents (phase 6): stopSession terminates the agent processes + archives.
+  const res = (await hub.stopSession()) as { ok?: boolean; archive?: string | null };
   if (res.ok) {
-    console.log(`✓ Session archived${res.archive ? `: ${res.archive}` : ""}.`);
+    console.log(`✓ Session archived${res.archive ? `: ${res.archive}` : ""} (agents stopped).`);
   }
   stopHub();
   console.log("✓ Hub stopped.");

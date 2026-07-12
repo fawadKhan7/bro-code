@@ -7,6 +7,7 @@ import { Hub } from "./server.js";
 export { Hub, type HubOptions } from "./server.js";
 export { SessionStore, type CreateSessionInput, type PlanApprovalEdits } from "./store.js";
 export { createToolset } from "./tools.js";
+export { SessionSupervisor, defaultAdapterResolver, type AdapterResolver, type StartOptions } from "./supervisor.js";
 
 const isMain = process.argv[1]?.endsWith("index.js") || process.argv[1]?.endsWith("duo-hub");
 

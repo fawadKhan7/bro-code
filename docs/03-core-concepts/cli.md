@@ -31,12 +31,15 @@ a CLI is the cheapest, most scriptable, most editor-agnostic place for it.
 
 ## How it works
 
-- **Thin over REST.** Every command except `init`/`start` is a small HTTP client of the hub —
-  the CLI holds no session state. This is why the dashboard can offer the same actions with no
-  extra hub code.
-- **`start` is the orchestrator**: config load → scanner → hub spawn/reuse (`/health` probe,
-  PID file) → `adapter.configure()` per slot → prompt builder (brief + binding + map + protocol)
-  → `adapter.launch()` → registration handshake gate → hand off to `status --watch`.
+- **Thin over REST.** Every command except `init` is a small HTTP client of the hub — the CLI
+  holds no session state and (since phase 6) no agent processes. This is why the dashboard and
+  desktop app offer the same actions with no extra hub code.
+- **`start` (v2, phase 6)** ensures the hub is up (`/health` probe, PID file), then POSTs
+  `/api/session/start` — the **hub** does scan → configure → launch → registration gate. The CLI
+  just watches status (surfacing `launchError` loudly) until `done`. Killing the `duo start`
+  terminal detaches; the session keeps running in the hub daemon and `duo status` reattaches.
+- **`duo` with no args** ensures the hub and opens the dashboard — the one command a
+  non-terminal user needs.
 - **Failure-loud**: registration timeouts, missing binaries (`detect()`), port conflicts, and
   stale hubs produce specific diagnoses (and `duo doctor` for the rest), never silent hangs.
 

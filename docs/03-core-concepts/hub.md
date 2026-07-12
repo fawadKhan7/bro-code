@@ -27,6 +27,12 @@ died with its host window; Conductor had N servers sharing an unlocked file
 - **Pushes events** (`log`, `board`, `checkpoint`, `status`, `registration`) over `GET
   /api/updates` (SSE) to the CLI's watch mode and the dashboard.
 - **Zero LLM calls** — pure logic; merging plan proposals uses title/path similarity, not AI.
+- **Owns the agents (v2, phase 6)** — the hub contains a `SessionSupervisor` that launches agents
+  via adapters, keeps them alive across planning→execution, pipes their output into hub logs,
+  gates on registration, and auto-resumes crashes. Session lifecycle is driven over REST
+  (`/api/session/start|stop|resume`), so the CLI, dashboard, and desktop app are all equal clients
+  and a session survives the terminal that started it. Setup-support endpoints (`/api/config`,
+  `/api/fs/list` home-sandboxed, `/api/runners/detect`) let a GUI do folder/agent/role setup.
 
 ### Surfaces
 

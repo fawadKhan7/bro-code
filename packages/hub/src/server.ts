@@ -10,6 +10,7 @@ import { SessionStore } from "./store.js";
 import { RestApi } from "./rest.js";
 import { LegacySseTransport } from "./legacySse.js";
 import { handleMcpRequest } from "./mcpTransport.js";
+import { SessionSupervisor, defaultAdapterResolver, type AdapterResolver } from "./supervisor.js";
 
 /** dist/server.js → ../dashboard/index.html (bundled via package "files"). Read once, cached. */
 function loadDashboard(): string | null {
@@ -29,10 +30,13 @@ export interface HubOptions {
   persistFile?: string;
   /** Restore a persisted active session on boot (hub restart recovery). Default true. */
   restore?: boolean;
+  /** Injectable adapter resolver — tests pass scripted adapters (no AI tokens). */
+  adapterResolver?: AdapterResolver;
 }
 
 export class Hub {
   readonly store: SessionStore;
+  readonly supervisor: SessionSupervisor;
   private server: http.Server | null = null;
   private rest: RestApi | null = null;
   private legacy: LegacySseTransport | null = null;
@@ -41,6 +45,7 @@ export class Hub {
   constructor(private options: HubOptions = {}) {
     this.store = new SessionStore(options.persistFile ?? sessionPath());
     if (options.restore !== false) this.store.loadFromDisk();
+    this.supervisor = new SessionSupervisor(this.store, options.adapterResolver ?? defaultAdapterResolver);
   }
 
   get port(): number {
@@ -72,7 +77,7 @@ export class Hub {
       this.server.listen(port, host, () => {
         const addr = this.server!.address();
         this.boundPort = typeof addr === "object" && addr ? addr.port : port;
-        this.rest = new RestApi(this.store, this.boundPort);
+        this.rest = new RestApi(this.store, this.boundPort, this.supervisor, this.url);
         resolve();
       });
     });
@@ -120,7 +125,8 @@ export class Hub {
     res.end(JSON.stringify({ error: `Not found: ${req.method} ${urlPath}` }));
   }
 
-  stop(): Promise<void> {
+  async stop(): Promise<void> {
+    await this.supervisor.stopAgents().catch(() => undefined);
     this.rest?.closeAll();
     this.legacy?.closeAll();
     return new Promise((resolve) => {

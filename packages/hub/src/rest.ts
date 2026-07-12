@@ -2,8 +2,14 @@
  *  Not MCP. Everything here is a thin, validated pass-through to the SessionStore.
  */
 import type { IncomingMessage, ServerResponse } from "http";
-import { historyDir, type HubEvent } from "@duo/shared";
+import { spawnSync } from "child_process";
+import * as fs from "fs";
+import * as os from "os";
+import * as path from "path";
+import { historyDir, loadConfig, saveConfig, type DuoConfig, type HubEvent } from "@duo/shared";
+import { getAdapter, hasAdapter } from "@duo/adapters";
 import type { PlanApprovalEdits, SessionStore, CreateSessionInput } from "./store.js";
+import type { SessionSupervisor, StartOptions } from "./supervisor.js";
 
 async function readJson(req: IncomingMessage): Promise<Record<string, unknown>> {
   const chunks: Buffer[] = [];
@@ -25,7 +31,12 @@ function json(res: ServerResponse, status: number, body: unknown): void {
 export class RestApi {
   private subscribers = new Set<ServerResponse>();
 
-  constructor(private store: SessionStore, private port: number) {
+  constructor(
+    private store: SessionStore,
+    private port: number,
+    private supervisor: SessionSupervisor,
+    private hubUrl: string
+  ) {
     store.events.on("hub-event", (event: HubEvent) => this.broadcast(event));
   }
 
@@ -142,7 +153,80 @@ export class RestApi {
       return true;
     }
 
+    // ── Session lifecycle (hub-owned agents, phase 6) ──────────────────────────
+    if (method === "POST" && urlPath === "/api/session/start") {
+      const body = await readJson(req);
+      const config = loadConfig();
+      if (!config || config.agents.length === 0) {
+        json(res, 409, { ok: false, error: "No configuration. Run `duo init` (or PUT /api/config)." });
+        return true;
+      }
+      if (body.mode === "checkpoint" || body.mode === "auto-run") config.mode = body.mode;
+      const opts: StartOptions = {
+        goal: String(body.goal ?? "").trim(),
+        plan: body.plan !== false,
+        autoApproveTrivial: body.autoApproveTrivial !== false,
+        registrationTimeoutMs: body.registrationTimeoutMs === undefined ? undefined : Number(body.registrationTimeoutMs),
+      };
+      if (!opts.goal) {
+        json(res, 400, { ok: false, error: "A goal is required." });
+        return true;
+      }
+      const result = await this.supervisor.start(config, this.hubUrl, opts);
+      json(res, result.ok ? 200 : 409, result);
+      return true;
+    }
+
+    if (method === "POST" && urlPath === "/api/session/stop") {
+      await this.supervisor.stopAgents();
+      const archive = this.store.stopSession(historyDir());
+      json(res, 200, { ok: true, archive });
+      return true;
+    }
+
+    if (method === "POST" && urlPath === "/api/session/resume") {
+      const body = await readJson(req);
+      const result = await this.supervisor.resume(String(body.agent_id ?? ""));
+      json(res, result.ok ? 200 : 409, result);
+      return true;
+    }
+
+    // ── Config (GUI-editable duo init data) ────────────────────────────────────
+    if (method === "GET" && urlPath === "/api/config") {
+      json(res, 200, { config: loadConfig() });
+      return true;
+    }
+    if (method === "PUT" && urlPath === "/api/config") {
+      const body = await readJson(req);
+      const err = validateConfig(body);
+      if (err) {
+        json(res, 400, { ok: false, error: err });
+        return true;
+      }
+      saveConfig(body as unknown as DuoConfig);
+      json(res, 200, { ok: true });
+      return true;
+    }
+
+    // ── Setup support for GUIs (folder picker, runner detection) ───────────────
+    if (method === "GET" && urlPath === "/api/fs/list") {
+      const url = new URL(req.url ?? "", "http://localhost");
+      json(res, 200, listDir(url.searchParams.get("path")));
+      return true;
+    }
+    if (method === "GET" && urlPath === "/api/runners/detect") {
+      json(res, 200, { runners: await detectRunners() });
+      return true;
+    }
+    if (method === "GET" && urlPath === "/api/runners/models") {
+      const url = new URL(req.url ?? "", "http://localhost");
+      json(res, 200, { models: listModels(url.searchParams.get("runner") ?? "") });
+      return true;
+    }
+
+    // Back-compat alias.
     if (method === "POST" && urlPath === "/api/stop") {
+      await this.supervisor.stopAgents();
       const archive = this.store.stopSession(historyDir());
       json(res, 200, { ok: true, archive });
       return true;
@@ -164,4 +248,86 @@ export class RestApi {
 
     return false;
   }
+}
+
+// ── Setup-support helpers ────────────────────────────────────────────────────
+
+const RUNNERS = ["claude-code", "cursor-cli", "cursor-ide"] as const;
+
+function validateConfig(body: Record<string, unknown>): string | null {
+  const agents = body.agents;
+  if (!Array.isArray(agents) || agents.length < 2) return "config needs at least 2 agents";
+  for (const a of agents as Array<Record<string, unknown>>) {
+    if (!a.id || !a.workspace || !a.runner || !a.role) return "each agent needs id, workspace, runner, role";
+    if (!RUNNERS.includes(a.runner as never)) return `unknown runner "${String(a.runner)}"`;
+  }
+  return null;
+}
+
+/** Directory listing for GUI folder pickers — sandboxed to $HOME, traversal-safe. */
+function listDir(rawPath: string | null): { path: string; parent: string | null; dirs: string[]; error?: string } {
+  const home = os.homedir();
+  const target = path.resolve(rawPath && rawPath.trim() ? rawPath : home);
+  // Reject anything outside home (the sandbox).
+  if (target !== home && !target.startsWith(home + path.sep)) {
+    return { path: home, parent: null, dirs: safeDirs(home), error: "outside home; reset to home" };
+  }
+  const parent = target === home ? null : path.dirname(target);
+  return { path: target, parent, dirs: safeDirs(target) };
+}
+
+function safeDirs(dir: string): string[] {
+  try {
+    return fs
+      .readdirSync(dir, { withFileTypes: true })
+      .filter((e) => e.isDirectory() && !e.name.startsWith("."))
+      .map((e) => e.name)
+      .sort()
+      .slice(0, 500);
+  } catch {
+    return [];
+  }
+}
+
+/** Models offered per runner. "" (default) is always first — let the runner pick. */
+function listModels(runner: string): Array<{ id: string; label: string }> {
+  const defaultOpt = { id: "", label: "Default" };
+  if (runner === "claude-code") {
+    return [
+      defaultOpt,
+      { id: "opus", label: "Claude Opus (most capable)" },
+      { id: "sonnet", label: "Claude Sonnet (balanced)" },
+      { id: "haiku", label: "Claude Haiku (fast)" },
+    ];
+  }
+  if (runner === "cursor-cli") {
+    try {
+      const r = spawnSync(process.env.DUO_CURSOR_BIN ?? "cursor-agent", ["--list-models"], {
+        encoding: "utf8",
+        timeout: 15_000,
+      });
+      const models = `${r.stdout ?? ""}`
+        .split("\n")
+        .map((l) => l.match(/^(\S+)\s+-\s+(.+)$/))
+        .filter((m): m is RegExpMatchArray => !!m)
+        .map((m) => ({ id: m[1], label: m[2] }));
+      return models.length ? [defaultOpt, ...models] : [defaultOpt];
+    } catch {
+      return [defaultOpt];
+    }
+  }
+  return [defaultOpt];
+}
+
+async function detectRunners(): Promise<Array<{ runner: string; ok: boolean; version?: string; reason?: string }>> {
+  const out = [];
+  for (const runner of RUNNERS) {
+    if (!hasAdapter(runner)) {
+      out.push({ runner, ok: false, reason: "no adapter" });
+      continue;
+    }
+    const r = await getAdapter(runner).detect();
+    out.push({ runner, ok: r.ok, version: r.version, reason: r.reason });
+  }
+  return out;
 }

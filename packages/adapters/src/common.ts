@@ -154,6 +154,33 @@ export function copyToClipboard(text: string): string | null {
   return null;
 }
 
+/** Extract a total token count from a stream-json `result` event's usage, or null.
+ *  Handles both Claude (snake_case: input_tokens, cache_read_input_tokens…) and cursor-agent
+ *  (camelCase: inputTokens, cacheReadTokens…) by summing every top-level numeric field whose key
+ *  mentions "token". Verified against real output of both CLIs (2026-07).
+ */
+export function extractUsageTokens(line: string): number | null {
+  const trimmed = line.trim();
+  if (!trimmed || !trimmed.includes("usage")) return null;
+  let evt: Record<string, unknown>;
+  try {
+    evt = JSON.parse(trimmed) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+  const usage = evt.usage as Record<string, unknown> | undefined;
+  if (!usage || typeof usage !== "object") return null;
+  let total = 0;
+  let found = false;
+  for (const [k, v] of Object.entries(usage)) {
+    if (typeof v === "number" && /token/i.test(k)) {
+      total += v;
+      found = true;
+    }
+  }
+  return found ? total : null;
+}
+
 /** Read stdout line-by-line, invoking onLine per complete line. Returns a flush function. */
 export function makeLineReader(onLine: (line: string) => void): (chunk: Buffer) => void {
   let buffer = "";

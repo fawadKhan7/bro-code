@@ -3,8 +3,10 @@
  */
 import { getAdapter, hasAdapter, probeCursorMcp, type CursorMcpStatus } from "@duo/adapters";
 import { loadConfig } from "@duo/shared";
-import { TOOL_PREFIX } from "../kickoffAssembly.js";
 import { hubReachable } from "../hubProcess.js";
+
+/** MCP server name registered in each workspace's mcp.json (matches the hub's kickoff prefix). */
+const TOOL_PREFIX = "duo";
 
 function line(ok: boolean | "warn", label: string, detail: string): void {
   const mark = ok === true ? "✓" : ok === "warn" ? "!" : "✗";

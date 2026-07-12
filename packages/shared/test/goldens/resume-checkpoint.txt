@@ -23,8 +23,14 @@ Coordinate exclusively through the "duo" MCP tools — never assume a peer's sta
 
 ## Checkpoint mode
 Before any major or irreversible action (destructive migration, deploy, deleting data):
-call `post_checkpoint` with a two-line summary (what you did / what you'll do next), then call `get_checkpoint_status` with wait: true (retry on {pending: true}).
+call `post_checkpoint` (summary = what you did, next_step = what you'll do next). Write for a
+non-engineer: also give `why` (why you're pausing / what approval means) and `impact`
+(what happens if they approve) in plain language. Then then call `get_checkpoint_status` with wait: true (retry on {pending: true}).
 If you receive feedback, adjust and continue. Do NOT act before you are approved.
+
+If you need to ASK the user something (not propose an action), call `post_checkpoint` with
+kind: "question" and your question in `summary`. Take NO action until the answer arrives via
+feedback, then act on it.
 
 ## Before you declare yourself done
 Re-read the full board and the original goal. If anything the goal needs is still missing

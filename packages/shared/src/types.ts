@@ -12,6 +12,8 @@ export interface AgentConfig {
   runner: Runner;
   /** Free-form role string — a planning bias, not a boundary. */
   role: string;
+  /** Optional model override passed to the runner (e.g. "claude-opus-4-8", "sonnet-4"). */
+  model?: string;
 }
 
 export interface Registration {
@@ -54,6 +56,8 @@ export interface LogEntry {
 
 export interface Contract {
   agentId: string;
+  /** One plain-language sentence: what was decided (v2). Written for a human reader. */
+  summary?: string;
   content: string;
   timestamp: string;
   /** SHA-256 hex of content — detects drift across sessions. */
@@ -71,10 +75,19 @@ export interface Contract {
 
 export type CheckpointStatus = "pending" | "approved" | "feedback";
 
+/** "question" = the agent is asking the user something and will not act until answered (v2). */
+export type CheckpointKind = "checkpoint" | "question";
+
 export interface Checkpoint {
   agentId: string;
   summary: string;
   nextStep: string;
+  /** Why the agent is pausing — what the user's approval means (v2, plain language). */
+  why?: string;
+  /** What happens if the user approves (v2, plain language). */
+  impact?: string;
+  /** A pure question pauses without proposing an action; the answer arrives via feedback. */
+  kind?: CheckpointKind;
   status: CheckpointStatus;
   feedback?: string;
   timestamp: string;
@@ -90,6 +103,8 @@ export interface SessionState {
   agents: AgentConfig[];
   registrations: Record<string, Registration | undefined>;
   planProposals: Record<string, PlanItemInput[] | undefined>;
+  /** Human-readable plan digest per agent, posted with the plan (v2). */
+  planSummaries: Record<string, string | undefined>;
   /** Merged, not-yet-approved board (planning phase). */
   proposedBoard: BoardItem[];
   board: BoardItem[];
@@ -102,6 +117,10 @@ export interface SessionState {
   lastFeedback: string | null;
   resumeBriefVersion: number;
   startedAt: string;
+  /** Set by the hub supervisor when launching/registration fails — surfaced to clients (v2). */
+  launchError: string | null;
+  /** Cumulative tokens per agent, parsed from runner stream-json usage (v2). */
+  tokensByAgent: Record<string, number>;
 }
 
 export function emptySession(): SessionState {
@@ -114,6 +133,7 @@ export function emptySession(): SessionState {
     agents: [],
     registrations: {},
     planProposals: {},
+    planSummaries: {},
     proposedBoard: [],
     board: [],
     boardVersion: 0,
@@ -125,6 +145,8 @@ export function emptySession(): SessionState {
     lastFeedback: null,
     resumeBriefVersion: 0,
     startedAt: "",
+    launchError: null,
+    tokensByAgent: {},
   };
 }
 
