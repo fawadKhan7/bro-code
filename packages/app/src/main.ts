@@ -129,24 +129,16 @@ ipcMain.on("duo:notify", (_e, payload: { title: string; body: string }) => {
 });
 
 app.whenReady().then(async () => {
+  // Phase 1 — the local hub: your own two agents build on your machine, over MCP.
+  hubUrl = await ensureHub();
+  // Phase 2 — the coordination layer: with a deployed URL baked in it connects to
+  // the shared server (pair with people on other machines); otherwise it runs
+  // locally. Non-fatal — Phase 1 is fully usable without it.
   coordination = await ensureCoordination().catch((err: unknown) => {
     console.error("coordination server unavailable:", err instanceof Error ? err.message : err);
     return null;
   });
-
-  // Distributed build pointed at a deployed backend: coordination IS the app.
-  // Skip the local hub (recipients don't run agents here) and open the deployed
-  // coordination dashboard as the main window, so every copy shares one session.
-  if (remoteCoordinationUrl()) {
-    openCoordinationWindow();
-    setupTray();
-    app.on("activate", () => {
-      if (BrowserWindow.getAllWindows().length === 0) openCoordinationWindow();
-    });
-    return;
-  }
-
-  hubUrl = await ensureHub();
+  // Phase 1 window is primary; the tray's "Open coordination" opens the Phase 2 view.
   createWindow(hubUrl);
   setupTray();
   app.on("activate", () => {
