@@ -25,6 +25,7 @@
     "appId": "com.brocode.app",
     "productName": "BroCode",
     "electronVersion": "31.7.7",
+    "npmRebuild": false,
     "files": [
       "dist/**",
       "node_modules/**"
