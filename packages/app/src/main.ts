@@ -20,18 +20,64 @@
 import { app, BrowserWindow, dialog, ipcMain, Notification, Tray, Menu, nativeImage } from "electron";
 import { fileURLToPath } from "url";
 import * as path from "path";
+import * as os from "os";
 import { Hub } from "@duo/hub";
 import { loadConfig } from "@duo/shared";
+import { startCoordinationAgent, type CoordinationAgentHandle, type Runner } from "@duo/coord-client";
 import { ensureCoordination, remoteCoordinationUrl, type CoordinationHandle } from "./coordination.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 let ownedHub: Hub | null = null;
 let coordination: CoordinationHandle | null = null;
+let agentHandle: CoordinationAgentHandle | null = null;
 let win: BrowserWindow | null = null;
 let coordWin: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let hubUrl = "";
+
+/** Who you are in Phase 2. Both your dashboard and your agent must join as the
+ *  same id to be paired to each other — default to the OS user, override with env. */
+function coordIdentity(): { userId: string; displayName: string; runner: Runner } {
+  const raw = process.env.BROCODE_USER ?? os.userInfo().username ?? "me";
+  const userId = raw.replace(/[^a-zA-Z0-9_-]/g, "").toLowerCase() || "me";
+  const runner: Runner = process.env.BROCODE_RUNNER === "cursor" ? "cursor" : "claude";
+  return { userId, displayName: userId, runner };
+}
+
+/** One click for Phase 2: pick the project folder, launch your real agent into the
+ *  deployed coordination server, and open the dashboard joined as the same identity. */
+async function startMyAgent(): Promise<void> {
+  const url = remoteCoordinationUrl() || coordination?.url;
+  if (!url) {
+    dialog.showMessageBox({ type: "info", title: "No coordination server", message: "No coordination server is configured." });
+    return;
+  }
+  const picked = await dialog.showOpenDialog({
+    title: "Choose the project folder your agent will work in",
+    properties: ["openDirectory"],
+  });
+  if (picked.canceled || picked.filePaths.length === 0) return;
+
+  const { userId, displayName, runner } = coordIdentity();
+  try {
+    if (agentHandle) agentHandle.stop();
+    agentHandle = await startCoordinationAgent({
+      url,
+      userId,
+      displayName,
+      runner,
+      cwd: picked.filePaths[0],
+      onLog: (message) => console.log("[coordination-agent]", message),
+    });
+    openCoordinationWindow(userId, displayName); // dashboard joins as the same id → paired to this agent
+    if (Notification.isSupported()) {
+      new Notification({ title: "Agent connected", body: `Your ${runner} agent joined coordination as ${userId}.` }).show();
+    }
+  } catch (err) {
+    dialog.showMessageBox({ type: "error", title: "Could not start agent", message: err instanceof Error ? err.message : String(err) });
+  }
+}
 
 async function probe(port: number): Promise<boolean> {
   try {
@@ -64,7 +110,7 @@ function createWindow(url: string): void {
 
 /** The Phase 2 view: network roster, pairing, both queues, locks, approvals.
  *  Its own window — it is a different job from the single-machine hub dashboard. */
-function openCoordinationWindow(): void {
+function openCoordinationWindow(userId?: string, displayName?: string): void {
   if (!coordination?.hasDashboard) {
     dialog.showMessageBox({
       type: "info",
@@ -75,7 +121,11 @@ function openCoordinationWindow(): void {
     });
     return;
   }
+  // Joining with ?user= auto-pairs the dashboard to the agent launched under the same id.
+  const query = userId ? `?user=${encodeURIComponent(userId)}&name=${encodeURIComponent(displayName ?? userId)}` : "/";
+  const target = coordination.url + (userId ? "/" + query : "/");
   if (coordWin) {
+    if (userId) void coordWin.loadURL(target);
     if (coordWin.isMinimized()) coordWin.restore();
     coordWin.focus();
     return;
@@ -86,7 +136,7 @@ function openCoordinationWindow(): void {
     title: "BroCode — coordination",
     webPreferences: { preload: path.join(__dirname, "preload.js") },
   });
-  void coordWin.loadURL(coordination.url + "/");
+  void coordWin.loadURL(target);
   coordWin.on("closed", () => (coordWin = null));
 }
 
@@ -105,6 +155,7 @@ function setupTray(): void {
   const menu = Menu.buildFromTemplate([
     { label: "Open BroCode", click: () => focusWindow() },
     { label: "Open coordination", click: () => openCoordinationWindow() },
+    { label: "Start my agent (Phase 2)…", click: () => void startMyAgent() },
     { type: "separator" },
     { label: "Quit", click: () => app.quit() },
   ]);
@@ -155,6 +206,7 @@ app.on("window-all-closed", () => {
 
 app.on("before-quit", async () => {
   // Only ever stop what this process started — an attached server belongs to someone else.
+  agentHandle?.stop();
   if (ownedHub) await ownedHub.stop().catch(() => undefined);
   if (coordination?.owned) await coordination.stop().catch(() => undefined);
 });
