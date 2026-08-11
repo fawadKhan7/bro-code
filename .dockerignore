@@ -1,0 +1,13 @@
+**/node_modules
+**/dist
+**/*.tsbuildinfo
+**/.next
+packages/coord-server/dashboard
+**/.DS_Store
+.git
+legacy
+docs
+linkedin-series
+linkedin-series.zip
+tmp-pdf
+*.zip
