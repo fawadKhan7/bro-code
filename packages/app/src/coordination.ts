@@ -36,7 +36,7 @@ export function coordinationPort(env: NodeJS.ProcessEnv = process.env): number {
  *  set, the app runs no local server — it opens the deployed coordination
  *  dashboard directly, so every copy joins the same shared session. Empty = the
  *  original local behaviour (probe-or-own on localhost). */
-const DEFAULT_REMOTE_COORD_URL = "";
+const DEFAULT_REMOTE_COORD_URL = "https://brocode-ul5rdh8r.b4a.run";
 
 export function remoteCoordinationUrl(env: NodeJS.ProcessEnv = process.env): string {
   const raw = (env.BROCODE_COORD_URL ?? "").trim() || DEFAULT_REMOTE_COORD_URL;
