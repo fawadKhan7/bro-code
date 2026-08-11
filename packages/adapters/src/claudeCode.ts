@@ -6,7 +6,7 @@
  *  - CRITICAL (found in the first real cursor↔claude run): --permission-mode acceptEdits allows
  *    file edits but does NOT auto-grant MCP tool calls — the agent reports "the duo tools aren't
  *    being granted permission" and never registers. Fix: pass --allowedTools "mcp__<prefix>" to
- *    explicitly allow every tool from our MCP server. Server-level entry covers all 16 tools.
+ *    explicitly allow every tool from our MCP server. Server-level entry covers every tool.
  *  - Project-scoped .mcp.json in the workspace is auto-discovered by Claude Code; we also pass
  *    --mcp-config explicitly so discovery never depends on cwd trust prompts.
  *  - stream-json output is parsed into hub log lines; a premature process exit is surfaced as an
@@ -16,7 +16,14 @@ import { spawn, type ChildProcess } from "child_process";
 import { EventEmitter } from "events";
 import * as path from "path";
 import type { AgentAdapter, AgentHandle, DetectResult, LaunchContext } from "./types.js";
-import { detectBinary, extractUsageTokens, makeLineReader, mergeMcpConfig, summarizeClaudeStreamLine } from "./common.js";
+import {
+  detectBinary,
+  extractSessionId,
+  extractUsageTokens,
+  makeLineReader,
+  mergeMcpConfig,
+  summarizeClaudeStreamEvents,
+} from "./common.js";
 
 /** Read at call time so DUO_CLAUDE_BIN can point at a test/alternate binary. */
 function claudeBin(): string {
@@ -36,8 +43,9 @@ class ClaudeProcessHandle implements AgentHandle {
     const onOut = makeLineReader((line) => {
       const tokens = extractUsageTokens(line);
       if (tokens) this.events.emit("usage", tokens);
-      const summary = summarizeClaudeStreamLine(line);
-      if (summary) this.events.emit("output", summary);
+      const sessionId = extractSessionId(line);
+      if (sessionId) this.events.emit("session", sessionId);
+      for (const summary of summarizeClaudeStreamEvents(line)) this.events.emit("output", summary);
     });
     child.stdout?.on("data", onOut);
     child.stderr?.on("data", (chunk: Buffer) => {
@@ -81,6 +89,8 @@ export function buildClaudeArgs(ctx: LaunchContext, permissionMode: string): str
   ];
   const model = ctx.agent.model || (ctx.runnerOptions?.model as string | undefined);
   if (model) args.push("--model", model);
+  // Chat wake: continue the agent's previous Claude session so it remembers its earlier work.
+  if (ctx.resumeSessionRef) args.push("--resume", ctx.resumeSessionRef);
   return args;
 }
 

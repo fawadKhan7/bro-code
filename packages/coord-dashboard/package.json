@@ -1,0 +1,24 @@
+{
+  "name": "@duo/coord-dashboard",
+  "version": "0.1.0",
+  "private": true,
+  "description": "BroCode Phase 2 observability dashboard \u2014 network roster, pairing, live agent activity, queues, locks and the approval inbox",
+  "scripts": {
+    "dev": "next dev -p 4142",
+    "build": "next build && node scripts/stage.mjs",
+    "start": "npx serve out -l 4142",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@duo/coord-client": "^0.1.0",
+    "next": "^14.2.15",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "typescript": "^5.6.0"
+  }
+}

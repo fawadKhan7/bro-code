@@ -85,6 +85,40 @@ export class RestApi {
       return true;
     }
 
+    if (method === "GET" && urlPath === "/api/logs") {
+      json(res, 200, this.store.getLogs());
+      return true;
+    }
+
+    if (method === "GET" && urlPath === "/api/chat") {
+      const url = new URL(req.url ?? "", "http://localhost");
+      const since = Number(url.searchParams.get("since_id") ?? 0);
+      json(res, 200, this.store.getChat(Number.isFinite(since) ? since : 0));
+      return true;
+    }
+
+    if (method === "POST" && urlPath === "/api/mode") {
+      // The dashboard "Ask" toggle — flips the live session conversational (or back).
+      const body = await readJson(req);
+      const result = this.store.setLiveMode(String(body.mode ?? ""));
+      json(res, "error" in result ? 409 : 200, result);
+      return true;
+    }
+
+    if (method === "POST" && urlPath === "/api/chat") {
+      // The user's side of the chat. Running agents pick it up via get_chat; exited agents
+      // are woken back up by the supervisor with the message (that's how a session continues).
+      const body = await readJson(req);
+      const result = this.store.postChat(
+        "user",
+        String(body.text ?? ""),
+        body.to === undefined ? undefined : String(body.to)
+      );
+      if ("ok" in result && result.ok) void this.supervisor.deliverUserMessage(result.message);
+      json(res, "error" in result ? 409 : 200, result);
+      return true;
+    }
+
     if (method === "GET" && urlPath === "/api/board") {
       json(res, 200, {
         ...(this.store.getBoard() as object),
@@ -161,7 +195,7 @@ export class RestApi {
         json(res, 409, { ok: false, error: "No configuration. Run `duo init` (or PUT /api/config)." });
         return true;
       }
-      if (body.mode === "checkpoint" || body.mode === "auto-run") config.mode = body.mode;
+      if (body.mode === "checkpoint" || body.mode === "auto-run" || body.mode === "ask") config.mode = body.mode;
       const opts: StartOptions = {
         goal: String(body.goal ?? "").trim(),
         plan: body.plan !== false,

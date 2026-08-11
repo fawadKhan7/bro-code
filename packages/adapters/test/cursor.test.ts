@@ -6,7 +6,7 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import { afterEach, describe, expect, it } from "vitest";
-import { summarizeCursorStreamLine } from "../src/common.js";
+import { makeCursorStreamSummarizer } from "../src/common.js";
 import { CursorCliAdapter } from "../src/cursorCli.js";
 import { CursorIdeAdapter } from "../src/cursorIde.js";
 import { getAdapter, hasAdapter, knownRunners } from "../src/registry.js";
@@ -29,22 +29,67 @@ function ctxFor(ws: string, runner: "cursor-cli" | "cursor-ide"): LaunchContext 
   };
 }
 
-describe("summarizeCursorStreamLine (defensive)", () => {
+describe("makeCursorStreamSummarizer", () => {
   it("handles a flat tool event", () => {
-    expect(summarizeCursorStreamLine(JSON.stringify({ type: "tool_call", name: "claim_task" }))).toBe(
-      "→ claim_task"
-    );
+    const s = makeCursorStreamSummarizer();
+    expect(s.feed(JSON.stringify({ type: "tool_call", name: "claim_task" }))).toEqual(["→ claim_task"]);
   });
+
   it("handles Claude-like content blocks", () => {
+    const s = makeCursorStreamSummarizer();
     const line = JSON.stringify({ type: "assistant", message: { content: [{ type: "text", text: "working  on  it" }] } });
-    expect(summarizeCursorStreamLine(line)).toBe("working on it");
+    expect(s.feed(line)).toEqual(["working on it"]);
   });
-  it("handles a flat text delta", () => {
-    expect(summarizeCursorStreamLine(JSON.stringify({ type: "assistant", text: "hi there" }))).toBe("hi there");
+
+  it("handles flat complete assistant text", () => {
+    const s = makeCursorStreamSummarizer();
+    expect(s.feed(JSON.stringify({ type: "assistant", text: "hi there" }))).toEqual(["hi there"]);
   });
-  it("skips unrecognized/non-JSON", () => {
-    expect(summarizeCursorStreamLine("garbage")).toBeNull();
-    expect(summarizeCursorStreamLine(JSON.stringify({ type: "ping" }))).toBeNull();
+
+  it("aggregates thinking deltas into one line (the word-salad regression)", () => {
+    // Real cursor-agent 2026.07 shape, captured from a live run.
+    const s = makeCursorStreamSummarizer();
+    expect(s.feed(JSON.stringify({ type: "thinking", subtype: "delta", text: "The user requested a" }))).toEqual([]);
+    expect(s.feed(JSON.stringify({ type: "thinking", subtype: "delta", text: " reply containing exactly" }))).toEqual([]);
+    expect(s.feed(JSON.stringify({ type: "thinking", subtype: "delta", text: ' "hello".' }))).toEqual([]);
+    expect(s.feed(JSON.stringify({ type: "thinking", subtype: "completed" }))).toEqual([
+      '✻ The user requested a reply containing exactly "hello".',
+    ]);
+  });
+
+  it("flushes a pending buffer when a non-delta event arrives, then on result", () => {
+    const s = makeCursorStreamSummarizer();
+    s.feed(JSON.stringify({ type: "thinking", subtype: "delta", text: "Claiming the scaffold" }));
+    s.feed(JSON.stringify({ type: "thinking", subtype: "delta", text: " tasks now." }));
+    expect(s.feed(JSON.stringify({ type: "tool_call", name: "claim_task" }))).toEqual([
+      "✻ Claiming the scaffold tasks now.",
+      "→ claim_task",
+    ]);
+    expect(s.feed(JSON.stringify({ type: "result", subtype: "success" }))).toEqual(["[session success]"]);
+  });
+
+  it("does not repeat a complete assistant message that already streamed as deltas", () => {
+    const s = makeCursorStreamSummarizer();
+    s.feed(JSON.stringify({ type: "assistant", subtype: "delta", text: "hello " }));
+    s.feed(JSON.stringify({ type: "assistant", subtype: "delta", text: "world" }));
+    expect(s.feed(JSON.stringify({ type: "assistant", subtype: "completed" }))).toEqual(["hello world"]);
+    const complete = JSON.stringify({ type: "assistant", message: { content: [{ type: "text", text: "hello world" }] } });
+    expect(s.feed(complete)).toEqual([]);
+  });
+
+  it("flush() recovers a trailing partial thought on process exit", () => {
+    const s = makeCursorStreamSummarizer();
+    s.feed(JSON.stringify({ type: "thinking", subtype: "delta", text: "half a tho" }));
+    expect(s.flush()).toEqual(["✻ half a tho"]);
+    expect(s.flush()).toEqual([]);
+  });
+
+  it("skips unrecognized/non-JSON and the kickoff-prompt user echo", () => {
+    const s = makeCursorStreamSummarizer();
+    expect(s.feed("garbage")).toEqual([]);
+    expect(s.feed(JSON.stringify({ type: "ping" }))).toEqual([]);
+    const userEcho = JSON.stringify({ type: "user", message: { role: "user", content: [{ type: "text", text: "the whole kickoff prompt" }] } });
+    expect(s.feed(userEcho)).toEqual([]);
   });
 });
 

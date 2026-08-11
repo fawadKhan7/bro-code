@@ -11,6 +11,7 @@ import {
   cmdStatus,
   cmdStop,
 } from "./commands/control.js";
+import { cmdChat } from "./commands/chat.js";
 import { cmdResume } from "./commands/resume.js";
 import { cmdDoctor } from "./commands/doctor.js";
 import { cmdOpen } from "./commands/open.js";
@@ -64,10 +65,12 @@ const HELP = `BroCode (duo) — multi-agent AI collaboration
 Usage:
   duo                               Open the dashboard (starts the hub)
   duo init                          Configure agents (interactive)
-  duo start "<goal>" [--no-plan] [--mode checkpoint|auto-run]
+  duo start "<goal>" [--no-plan] [--mode checkpoint|auto-run|ask]
   duo plan                          Review the proposed board
   duo approve [--assign tN=agent,...] [--out-of-scope tN,...] [--agent <id>]
   duo feedback "<msg>" [--agent <id>]
+  duo chat                          Talk with the agents (live transcript + input)
+  duo chat "<msg>" [--agent <id>]   Send one message ("@A <msg>" also targets an agent)
   duo status [--watch]
   duo board                         Show the execution board
   duo out-of-scope tN,...           Mark items out of scope (human-only)
@@ -87,7 +90,7 @@ async function main(): Promise<void> {
     case "start": {
       const goal = positionals.join(" ").trim();
       if (!goal) return void console.error('Usage: duo start "<goal>"');
-      const mode = flags.mode === "checkpoint" ? "checkpoint" : flags.mode === "auto-run" ? "auto-run" : undefined;
+      const mode = (["checkpoint", "auto-run", "ask"] as const).find((m) => m === flags.mode);
       return cmdStart({ goal, noPlan: flags["no-plan"] === true, mode });
     }
 
@@ -106,6 +109,14 @@ async function main(): Promise<void> {
       const message = positionals.join(" ").trim();
       if (!message) return void console.error('Usage: duo feedback "<message>" [--agent <id>]');
       return cmdFeedback({ message, agent: typeof flags.agent === "string" ? flags.agent : undefined });
+    }
+
+    case "chat": {
+      const message = positionals.join(" ").trim();
+      return cmdChat({
+        message: message || undefined,
+        agent: typeof flags.agent === "string" ? flags.agent : undefined,
+      });
     }
 
     case "status":

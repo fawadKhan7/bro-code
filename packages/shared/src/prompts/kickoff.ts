@@ -87,6 +87,19 @@ function noPlanBlock(ctx: KickoffContext): string {
 }
 
 function modeBlock(ctx: KickoffContext): string {
+  if (ctx.mode === "ask") {
+    return [
+      heading("Ask mode"),
+      `The user wants a conversation, not autonomy. Work in small, confirmed steps through the chat:`,
+      `- BEFORE claiming a task or making a significant decision (approach, framework, schema, anything`,
+      `  destructive), send \`post_chat\` with what you intend and why, in plain language. Then WAIT for`,
+      `  the user's reply: call \`get_chat\` with wait: true and since_id = the highest message id you`,
+      `  have seen, and call it again whenever it returns {pending: true}. Do NOT proceed until they answer.`,
+      `- Act on the answer: a yes means do it; a no or a redirect means follow their instruction instead.`,
+      `- Answer any question the user asks in the chat before continuing to work.`,
+      `- Small mechanical steps inside a piece of work the user already confirmed don't need re-confirmation.`,
+    ].join("\n");
+  }
   if (ctx.mode === "checkpoint") {
     const waitHint =
       ctx.approvalStyle === "held"
@@ -108,6 +121,19 @@ function modeBlock(ctx: KickoffContext): string {
   return [
     heading("Auto-run mode"),
     `Work autonomously to completion without pausing for approval. Use \`post_update\` to keep the human informed.`,
+  ].join("\n");
+}
+
+function chatBlock(): string {
+  return [
+    heading("Chat with the user"),
+    `The user follows a live chat. Talk to them there — board updates alone are not enough.`,
+    `- \`post_chat\`: send a short plain-language message when you start executing (what you're about to`,
+    `  do), when you find something they should know, and ALWAYS as a final summary before you finish:`,
+    `  what you did, what works now, anything left over.`,
+    `- \`get_chat\`: the user may send follow-up instructions at any time. Check it (pass since_id from`,
+    `  your last read) after completing each task and again before declaring yourself done. Act on`,
+    `  messages addressed to "all" or to your agent id, and reply with \`post_chat\`.`,
   ].join("\n");
 }
 
@@ -136,6 +162,7 @@ export function buildKickoff(ctx: KickoffContext): string {
     projectMapBlock(ctx),
     ctx.plan ? planBlock(ctx) : noPlanBlock(ctx),
     modeBlock(ctx),
+    chatBlock(),
     finishBlock(),
     heading("Start now"),
     `First, call \`register_agent\` with agent_id "${ctx.agent.id}" and your workspace path. Then begin.`,
@@ -156,7 +183,34 @@ export function buildResumeKickoff(ctx: KickoffContext): string {
     `   the whole project; open only the files your remaining items touch.`,
     `3. Re-claim any of your items that were reopened, then continue execution.`,
     modeBlock(ctx),
+    chatBlock(),
     finishBlock(),
+  ];
+  return parts.join("\n\n") + "\n";
+}
+
+/** Follow-up prompt for an agent whose process already finished when the user sent a chat
+ *  message. The supervisor relaunches the agent with this — it is how a session continues. */
+export function buildChatFollowUp(ctx: KickoffContext, userMessage: string): string {
+  const parts = [
+    `You are Agent ${ctx.agent.id} (${ctx.agent.role}) returning to a collaboration you worked on — the user sent a new message in the session chat.`,
+    `Goal of the session: ${ctx.goal}`,
+    heading("The user's message"),
+    `"${userMessage}"`,
+    bindingBlock(ctx),
+    heading("What to do"),
+    `1. Call \`register_agent\` (agent_id "${ctx.agent.id}", your workspace path).`,
+    `2. Call \`get_chat\` for the full conversation and \`get_resume_brief\` for session context (board,`,
+    `   contracts, latest feedback). Do NOT re-explore the whole project — open only what the message needs.`,
+    `3. Act on the message: answer the question, or make the requested changes in your workspace.`,
+    `   If the request is large or unclear, first reply with \`post_chat\` stating your understanding and a`,
+    `   short plan, then do it.`,
+    `4. When you are done, reply with \`post_chat\` in plain language: what you did, or the answer.`,
+    `5. Then STAY in the conversation — this is a chat session, not a one-off errand. Call \`get_chat\``,
+    `   with wait: true and your last seen message id. If the user replies, handle it the same way and`,
+    `   keep the conversation going. Leave only when the user says they're done, or after two waits in`,
+    `   a row return {pending: true} with nothing new — then send a short sign-off via \`post_chat\`.`,
+    modeBlock(ctx),
   ];
   return parts.join("\n\n") + "\n";
 }

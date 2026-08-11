@@ -39,7 +39,7 @@ export async function cmdInit(): Promise<void> {
     }
 
     const preset = await ask(rl, "Preset:", "frontend-backend");
-    const mode = (await ask(rl, "Mode (auto-run | checkpoint):", "auto-run")) as Mode;
+    const mode = (await ask(rl, "Mode (auto-run | checkpoint | ask):", "auto-run")) as Mode;
     const permission = (await ask(
       rl,
       "Claude permission mode (acceptEdits | bypassPermissions | default):",
@@ -51,7 +51,7 @@ export async function cmdInit(): Promise<void> {
       ...defaultConfig(),
       agents,
       preset: isPresetId(preset) ? preset : "frontend-backend",
-      mode: mode === "checkpoint" ? "checkpoint" : "auto-run",
+      mode: mode === "checkpoint" || mode === "ask" ? mode : "auto-run",
       claudePermissionMode: permission,
       port: Number.isFinite(port) ? port : 3131,
     };

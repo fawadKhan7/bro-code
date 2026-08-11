@@ -1,0 +1,23 @@
+{
+  "name": "@duo/coord-client",
+  "version": "0.1.0",
+  "description": "BroCode Phase 2 coordination protocol + typed client adapter (humans and agents both import this)",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "bin": {
+    "brocode-demo-agent": "dist/demoAgent.js"
+  },
+  "files": ["dist"],
+  "engines": { "node": ">=20" },
+  "license": "MIT",
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "socket.io-client": "^4.8.1",
+    "zod": "^3.24.0"
+  }
+}

@@ -10,7 +10,7 @@ import { renderStatus } from "../render.js";
 export interface StartArgs {
   goal: string;
   noPlan: boolean;
-  mode?: "auto-run" | "checkpoint";
+  mode?: "auto-run" | "checkpoint" | "ask";
 }
 
 export async function cmdStart(args: StartArgs): Promise<void> {

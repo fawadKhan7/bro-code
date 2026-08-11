@@ -103,6 +103,17 @@ export class FakeAgent {
     return this.call("post_update", { agent_id: this.id, message, refs });
   }
 
+  postChat(text: string): Promise<ToolResult> {
+    return this.call("post_chat", { agent_id: this.id, text });
+  }
+
+  getChat(sinceId?: number, wait?: boolean): Promise<ToolResult> {
+    const args: Record<string, unknown> = { agent_id: this.id };
+    if (sinceId !== undefined) args.since_id = sinceId;
+    if (wait !== undefined) args.wait = wait;
+    return this.call("get_chat", args);
+  }
+
   postCheckpoint(summary: string, nextStep: string): Promise<ToolResult> {
     return this.call("post_checkpoint", { agent_id: this.id, summary, next_step: nextStep });
   }

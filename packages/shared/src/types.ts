@@ -1,7 +1,8 @@
 /** Core domain types for the Duo system. Agents are a list, never an A/B pair. */
 
 export type SessionPhase = "init" | "planning" | "executing" | "done";
-export type Mode = "auto-run" | "checkpoint";
+/** ask = conversational: agents confirm each significant step with the user in chat before acting. */
+export type Mode = "auto-run" | "checkpoint" | "ask";
 
 /** Which AI backs an agent slot. "fake" is used by the test suite. */
 export type Runner = "claude-code" | "cursor-cli" | "cursor-ide" | "fake";
@@ -19,6 +20,19 @@ export interface AgentConfig {
 export interface Registration {
   workspacePath: string;
   connectedAt: string;
+}
+
+/** Live process state of an agent, set by the hub supervisor (v2).
+ *  Drives the dashboard's "reconnecting… / replying…" indicator:
+ *  starting = launched, not yet registered · working = process running ·
+ *  reconnecting = being relaunched (chat wake or crash resume) · offline = process exited. */
+export type AgentActivityState = "starting" | "working" | "reconnecting" | "offline";
+
+export interface AgentActivity {
+  state: AgentActivityState;
+  /** Short human phrase for the UI, e.g. "waking up to answer your message". */
+  detail?: string;
+  since: string;
 }
 
 /** What agents send in post_plan. Deliberately no prose field. */
@@ -93,6 +107,19 @@ export interface Checkpoint {
   timestamp: string;
 }
 
+/** One entry in the user ↔ agents conversation. Distinct from LogEntry (machine progress
+ *  lines): chat is written to be read and answered — by the user or by an agent. */
+export interface ChatMessage {
+  /** Monotonic id (= chatVersion at post time) — enables get_chat(since_id) deltas. */
+  id: number;
+  /** "user" or an agent id. */
+  from: string;
+  /** "user", "all" (every agent), or a specific agent id. */
+  to: string;
+  text: string;
+  timestamp: string;
+}
+
 export interface SessionState {
   active: boolean;
   phase: SessionPhase;
@@ -114,6 +141,9 @@ export interface SessionState {
   contractRevisionBySlug: Record<string, number>;
   checkpoints: Record<string, Checkpoint | undefined>;
   logs: LogEntry[];
+  /** User ↔ agents conversation (the chat section). */
+  chat: ChatMessage[];
+  chatVersion: number;
   lastFeedback: string | null;
   resumeBriefVersion: number;
   startedAt: string;
@@ -121,6 +151,8 @@ export interface SessionState {
   launchError: string | null;
   /** Cumulative tokens per agent, parsed from runner stream-json usage (v2). */
   tokensByAgent: Record<string, number>;
+  /** Live process state per agent, set by the supervisor (v2). */
+  agentActivity: Record<string, AgentActivity | undefined>;
 }
 
 export function emptySession(): SessionState {
@@ -142,16 +174,19 @@ export function emptySession(): SessionState {
     contractRevisionBySlug: {},
     checkpoints: {},
     logs: [],
+    chat: [],
+    chatVersion: 0,
     lastFeedback: null,
     resumeBriefVersion: 0,
     startedAt: "",
     launchError: null,
     tokensByAgent: {},
+    agentActivity: {},
   };
 }
 
 /** Event pushed to SSE subscribers (CLI watch, dashboard). */
 export interface HubEvent {
-  type: "log" | "board" | "checkpoint" | "status" | "registration" | "phase" | "plan";
+  type: "log" | "board" | "checkpoint" | "status" | "registration" | "phase" | "plan" | "chat";
   data: unknown;
 }

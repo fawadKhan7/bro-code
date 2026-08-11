@@ -154,6 +154,32 @@ export function createToolset(store: SessionStore): ToolDef[] {
       handler: () => store.getLogs(),
     },
     {
+      name: "post_chat",
+      description:
+        "Send a conversational message TO THE USER in the session chat. Plain language, written to be read by a person: what you did and why, something you found they should know, or an answer to their chat message. ALWAYS send one before you finish — a short summary of what you did, what works now, and anything left. (For machine-style progress lines keep using post_update.)",
+      shape: {
+        agent_id: z.string(),
+        text: z.string().describe("Your message to the user. Short paragraphs, no jargon."),
+      },
+      handler: (a) => store.postChat(String(a.agent_id), String(a.text ?? "")),
+    },
+    {
+      name: "get_chat",
+      description:
+        "Read the user↔agent chat. The user posts follow-up instructions here — check it after completing each task and before declaring yourself done. Pass since_id (the highest id you have seen) for only new messages. Act on messages addressed to \"all\" or to your agent id, and reply with post_chat. Pass wait:true to block until a new message for you arrives (retry on {pending:true}).",
+      shape: {
+        agent_id: z.string(),
+        since_id: z.number().optional().describe("Highest message id you have already read."),
+        wait: z.boolean().optional(),
+      },
+      handler: (a) => {
+        const since = a.since_id === undefined ? 0 : Number(a.since_id);
+        return a.wait === true
+          ? store.awaitChat(String(a.agent_id), since, longPollMs())
+          : store.getChat(since);
+      },
+    },
+    {
       name: "post_checkpoint",
       description:
         "Pause for the user before/after major or irreversible work — OR to ask a question. Write for a non-engineer: plain language, no jargon. Then poll get_checkpoint_status. Set kind:'question' when you only need an answer (you will take no action until the user replies via feedback).",

@@ -58,6 +58,12 @@ export class ScriptClient {
   resumeBrief() {
     return this.call("get_resume_brief", { agent_id: this.id });
   }
+  postChat(text: string) {
+    return this.call("post_chat", { agent_id: this.id, text });
+  }
+  getChat(sinceId?: number) {
+    return this.call("get_chat", { agent_id: this.id, ...(sinceId === undefined ? {} : { since_id: sinceId }) });
+  }
 }
 
 export type AgentScript = (client: ScriptClient, ctx: LaunchContext) => Promise<void>;
@@ -68,7 +74,12 @@ class ScriptHandle implements AgentHandle {
   private _exited = false;
   private client: ScriptClient;
 
-  constructor(ctx: LaunchContext, script: AgentScript, kind: "process" | "manual" = "process") {
+  constructor(
+    ctx: LaunchContext,
+    script: AgentScript,
+    kind: "process" | "manual" = "process",
+    private sessionRef?: string
+  ) {
     this.kind = kind;
     this.client = new ScriptClient(ctx.agent.id, ctx.agent.workspace, ctx.hubUrl);
     void this.run(ctx, script);
@@ -77,6 +88,7 @@ class ScriptHandle implements AgentHandle {
   private async run(ctx: LaunchContext, script: AgentScript): Promise<void> {
     try {
       await this.client.connect();
+      if (this.sessionRef) this.events.emit("session", this.sessionRef);
       await script(this.client, ctx);
       this.emit(0);
     } catch (err) {
@@ -110,6 +122,8 @@ export interface ScriptedAdapterOptions {
   detect?: DetectResult;
   /** Agent ids whose handles should report kind:"manual" (cursor-ide simulation). */
   manualAgents?: string[];
+  /** Emit a "session" handle event per launch (sess-<id>-<n>) — simulates claude session ids. */
+  sessionRefs?: boolean;
 }
 
 export class ScriptedAdapter implements AgentAdapter {
@@ -135,6 +149,7 @@ export class ScriptedAdapter implements AgentAdapter {
         ? this.opts.resumeScripts?.[ctx.agent.id] ?? this.opts.scripts[ctx.agent.id]
         : this.opts.scripts[ctx.agent.id];
     const kind = this.opts.manualAgents?.includes(ctx.agent.id) ? "manual" : "process";
-    return new ScriptHandle(ctx, script, kind);
+    const sessionRef = this.opts.sessionRefs ? `sess-${ctx.agent.id}-${n}` : undefined;
+    return new ScriptHandle(ctx, script, kind, sessionRef);
   }
 }

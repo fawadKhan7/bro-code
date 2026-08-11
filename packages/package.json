@@ -2,20 +2,30 @@
   "name": "@duo/monorepo",
   "private": true,
   "version": "0.1.0",
-  "description": "BroCode — multi-agent AI collaboration hub (workspace root)",
+  "description": "BroCode \u2014 multi-agent AI collaboration hub (workspace root)",
   "workspaces": [
     "shared",
     "hub",
     "adapters",
     "cli",
-    "app"
+    "app",
+    "coord-client",
+    "coord-server",
+    "coord-dashboard"
   ],
   "scripts": {
     "build": "tsc -b shared hub adapters cli",
     "build:app": "npm run build && tsc -p app",
     "clean": "tsc -b shared hub adapters cli --clean",
     "test": "npm run build && vitest run --root shared && vitest run --root adapters && vitest run --root hub && vitest run --root cli",
-    "test:watch": "vitest --root hub"
+    "test:watch": "vitest --root hub",
+    "build:coord": "tsc -b coord-client coord-server",
+    "clean:coord": "tsc -b coord-client coord-server --clean",
+    "test:coord": "npm run build:coord && vitest run --root coord-server",
+    "coord": "npm run build:coord:dashboard && node coord-server/dist/main.js",
+    "build:coord:dashboard": "npm run build:coord && npm run build --workspace @duo/coord-dashboard",
+    "coord:dev-dashboard": "npm run build:coord && npm run dev --workspace @duo/coord-dashboard",
+    "demo:coord": "npm run build:coord:dashboard && node coord-server/scripts/demo.mjs"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

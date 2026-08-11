@@ -1,0 +1,14 @@
+export { AppModule } from "./app.module.js";
+export { createCoordinationApp, dashboardDir } from "./bootstrap.js";
+export { CoordinationService } from "./coordination.service.js";
+export { CoordinationGateway } from "./coordination.gateway.js";
+export { PresenceService } from "./presence/presence.service.js";
+export { PairingService } from "./pairing/pairing.service.js";
+export { QueueService } from "./queue/queue.service.js";
+export { LockService } from "./lock/lock.service.js";
+export { HandshakeService } from "./handshake/handshake.service.js";
+export { ContractService } from "./contract/contract.service.js";
+export { BusService } from "./bus/bus.service.js";
+export { SessionRegistry } from "./session/session.registry.js";
+export { deriveNetworkId } from "./net/network.js";
+export type { AgentRef, Connection, Session } from "./session/session.types.js";

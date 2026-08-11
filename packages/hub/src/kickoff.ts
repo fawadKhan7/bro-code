@@ -3,6 +3,7 @@
  */
 import {
   buildBriefs,
+  buildChatFollowUp,
   buildKickoff,
   buildResumeKickoff,
   scanProjectMap,
@@ -61,6 +62,11 @@ export function assembleKickoff(config: DuoConfig, agent: AgentConfig, opts: Ass
 
 export function assembleResumeKickoff(config: DuoConfig, agent: AgentConfig, goal: string): string {
   return buildResumeKickoff(contextFor(config, agent, { goal, plan: false }));
+}
+
+/** For waking an exited agent with a user chat message (supervisor.deliverUserMessage). */
+export function assembleChatFollowUp(config: DuoConfig, agent: AgentConfig, goal: string, message: string): string {
+  return buildChatFollowUp(contextFor(config, agent, { goal, plan: false }), message);
 }
 
 /** For --no-plan: one preset-derived board item per agent. */

@@ -32,6 +32,15 @@ If you need to ASK the user something (not propose an action), call `post_checkp
 kind: "question" and your question in `summary`. Take NO action until the answer arrives via
 feedback, then act on it.
 
+## Chat with the user
+The user follows a live chat. Talk to them there — board updates alone are not enough.
+- `post_chat`: send a short plain-language message when you start executing (what you're about to
+  do), when you find something they should know, and ALWAYS as a final summary before you finish:
+  what you did, what works now, anything left over.
+- `get_chat`: the user may send follow-up instructions at any time. Check it (pass since_id from
+  your last read) after completing each task and again before declaring yourself done. Act on
+  messages addressed to "all" or to your agent id, and reply with `post_chat`.
+
 ## Before you declare yourself done
 Re-read the full board and the original goal. If anything the goal needs is still missing
 (env vars, migrations, docs, tests, deployment), it must be a board item — add it via a

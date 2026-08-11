@@ -39,75 +39,142 @@ export function detectBinary(bin: string, versionArgs: string[] = ["--version"])
   }
 }
 
-/** Parse one line of Claude Code stream-json output into a short human log line, or null to skip. */
-export function summarizeClaudeStreamLine(line: string): string | null {
-  const trimmed = line.trim();
-  if (!trimmed) return null;
-  let evt: Record<string, unknown>;
-  try {
-    evt = JSON.parse(trimmed) as Record<string, unknown>;
-  } catch {
-    return null; // non-JSON noise
-  }
+/** Max characters of one activity log line; longer text is cut with an ellipsis. */
+const LOG_LINE_MAX = 240;
 
-  const type = String(evt.type ?? "");
-  if (type === "assistant" || type === "user") {
-    const message = evt.message as { content?: Array<Record<string, unknown>> } | undefined;
-    const blocks = message?.content ?? [];
-    for (const block of blocks) {
-      if (block.type === "tool_use") return `→ ${String(block.name ?? "tool")}`;
-      if (block.type === "text" && typeof block.text === "string") {
-        const text = block.text.trim().replace(/\s+/g, " ");
-        if (text) return text.slice(0, 200);
-      }
-    }
-    return null;
-  }
-  if (type === "result") {
-    const subtype = String(evt.subtype ?? "");
-    return `[session ${subtype || "ended"}]`;
-  }
-  return null;
+function cleanText(raw: string): string {
+  const text = raw.trim().replace(/\s+/g, " ");
+  return text.length > LOG_LINE_MAX ? text.slice(0, LOG_LINE_MAX - 1) + "…" : text;
 }
 
-/** Summarize one line of cursor-agent stream-json into a short human log line, or null.
- *  Defensive: cursor's schema differs from Claude's and may shift between versions, so we probe
- *  a few common shapes and skip anything unrecognized (piping is best-effort — the real signal is
- *  the agent's MCP tool calls, which show up in hub logs regardless).
- */
-export function summarizeCursorStreamLine(line: string): string | null {
+/** Summarize the content blocks of one COMPLETE assistant message into log lines. */
+function summarizeBlocks(blocks: Array<Record<string, unknown>>): string[] {
+  const out: string[] = [];
+  for (const block of blocks) {
+    const btype = String(block.type ?? "");
+    if (btype.includes("tool") && !btype.includes("result")) {
+      out.push(`→ ${String(block.name ?? "tool")}`);
+    } else if (btype === "text" && typeof block.text === "string" && block.text.trim()) {
+      out.push(cleanText(block.text));
+    }
+  }
+  return out;
+}
+
+/** Parse one line of Claude Code stream-json output into human log lines ([] to skip).
+ *  Only complete assistant messages are summarized — partial/delta events are never logged
+ *  line-by-line (that turns the activity feed into word salad). */
+export function summarizeClaudeStreamEvents(line: string): string[] {
   const trimmed = line.trim();
-  if (!trimmed) return null;
+  if (!trimmed) return [];
   let evt: Record<string, unknown>;
   try {
     evt = JSON.parse(trimmed) as Record<string, unknown>;
   } catch {
-    return null;
+    return []; // non-JSON noise
   }
 
   const type = String(evt.type ?? "");
-  // Tool-call shapes.
-  if (type.includes("tool")) {
-    const name = evt.name ?? (evt.tool as Record<string, unknown> | undefined)?.name ?? (evt.toolName as unknown);
-    if (name) return `→ ${String(name)}`;
+  if (type === "assistant") {
+    const message = evt.message as { content?: Array<Record<string, unknown>> } | undefined;
+    return summarizeBlocks(message?.content ?? []);
   }
-  // Assistant message with content blocks (Claude-like).
-  const message = evt.message as { content?: Array<Record<string, unknown>> } | undefined;
-  const blocks = message?.content;
-  if (Array.isArray(blocks)) {
-    for (const block of blocks) {
-      if (String(block.type ?? "").includes("tool") && block.name) return `→ ${String(block.name)}`;
-      if (block.type === "text" && typeof block.text === "string" && block.text.trim()) {
-        return block.text.trim().replace(/\s+/g, " ").slice(0, 200);
-      }
+  if (type === "result") {
+    return [`[session ${String(evt.subtype ?? "") || "ended"}]`];
+  }
+  return [];
+}
+
+/** Back-compat single-line variant (first summary or null). */
+export function summarizeClaudeStreamLine(line: string): string | null {
+  return summarizeClaudeStreamEvents(line)[0] ?? null;
+}
+
+/** Stateful summarizer for cursor-agent stream-json.
+ *
+ *  cursor-agent streams thinking (and sometimes assistant text) word-by-word:
+ *    {"type":"thinking","subtype":"delta","text":"The user requested a"}
+ *    {"type":"thinking","subtype":"delta","text":" reply containing exactly"}
+ *    {"type":"thinking","subtype":"completed"}
+ *  Logging each delta made the activity feed one word per line. This factory buffers deltas and
+ *  emits whole thoughts: flushed on the "completed" marker, on any other event, or past a size
+ *  cap. Thinking lines are prefixed "✻ " so the dashboard can label them. Call flush() when the
+ *  process exits so a trailing partial thought isn't lost.
+ */
+export function makeCursorStreamSummarizer(): {
+  feed(line: string): string[];
+  flush(): string[];
+} {
+  const BUFFER_FLUSH_AT = 400;
+  let bufferKind: "thinking" | "text" | null = null;
+  let buffer = "";
+  let lastEmitted = "";
+
+  const flush = (): string[] => {
+    const kind = bufferKind;
+    const text = buffer.trim().replace(/\s+/g, " ");
+    buffer = "";
+    bufferKind = null;
+    if (!text) return [];
+    const line = kind === "thinking" ? `✻ ${cleanText(text)}` : cleanText(text);
+    lastEmitted = cleanText(text);
+    return [line];
+  };
+
+  const feed = (line: string): string[] => {
+    const trimmed = line.trim();
+    if (!trimmed) return [];
+    let evt: Record<string, unknown>;
+    try {
+      evt = JSON.parse(trimmed) as Record<string, unknown>;
+    } catch {
+      return [];
     }
-  }
-  // Flat text delta / assistant text.
-  if (typeof evt.text === "string" && evt.text.trim()) {
-    return evt.text.trim().replace(/\s+/g, " ").slice(0, 200);
-  }
-  if (type === "result") return `[session ${String(evt.subtype ?? "ended")}]`;
-  return null;
+
+    const type = String(evt.type ?? "");
+    const subtype = String(evt.subtype ?? "");
+
+    // Word-by-word deltas: accumulate, emit nothing yet.
+    if (subtype === "delta" && typeof evt.text === "string") {
+      const kind = type === "thinking" ? "thinking" : "text";
+      const out = kind !== bufferKind && buffer ? flush() : [];
+      bufferKind = kind;
+      buffer += evt.text;
+      if (buffer.length >= BUFFER_FLUSH_AT) out.push(...flush());
+      return out;
+    }
+    // End of a streamed thought/message.
+    if (subtype === "completed") return flush();
+
+    // Any other event closes the open buffer first, then may add its own line.
+    const out = flush();
+
+    if (type.includes("tool")) {
+      const name = evt.name ?? (evt.tool as Record<string, unknown> | undefined)?.name ?? (evt.toolName as unknown);
+      if (name) out.push(`→ ${String(name)}`);
+      return out;
+    }
+    if (type === "assistant") {
+      const message = evt.message as { content?: Array<Record<string, unknown>> } | undefined;
+      const blocks = message && Array.isArray(message.content) ? summarizeBlocks(message.content) : [];
+      // A complete assistant message can repeat text we already streamed via deltas — skip dupes.
+      out.push(...blocks.filter((b) => b !== lastEmitted));
+      // Flat complete assistant text (older schema).
+      if (!blocks.length && typeof evt.text === "string" && evt.text.trim()) {
+        const text = cleanText(evt.text);
+        if (text !== lastEmitted) out.push(text);
+      }
+      return out;
+    }
+    if (type === "result") {
+      out.push(`[session ${subtype || "ended"}]`);
+      return out;
+    }
+    // "system", "user" (kickoff echo / tool results), "ping" … — not activity, skip.
+    return out;
+  };
+
+  return { feed, flush };
 }
 
 export type CursorMcpStatus = "ready" | "needs-approval" | "connection-failed" | "absent" | "no-cli";
@@ -179,6 +246,20 @@ export function extractUsageTokens(line: string): number | null {
     }
   }
   return found ? total : null;
+}
+
+/** Pull the runner's session id from a stream-json line (Claude's system/init and result events
+ *  carry `session_id`). The supervisor stores it so a later wake can resume the same AI session
+ *  (claude --resume) and the agent remembers its earlier work. */
+export function extractSessionId(line: string): string | null {
+  const trimmed = line.trim();
+  if (!trimmed || !trimmed.includes("session_id")) return null;
+  try {
+    const evt = JSON.parse(trimmed) as Record<string, unknown>;
+    return typeof evt.session_id === "string" && evt.session_id ? evt.session_id : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Read stdout line-by-line, invoking onLine per complete line. Returns a flush function. */

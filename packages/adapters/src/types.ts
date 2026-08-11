@@ -22,6 +22,10 @@ export interface LaunchContext {
   toolPrefix: string;
   /** Claude permission mode etc. — runner-specific knobs, passed opaquely. */
   runnerOptions?: Record<string, unknown>;
+  /** Runner session id from a previous run of this agent (emitted via the handle's "session"
+   *  event). When set, adapters that support it resume that AI session (claude --resume) so the
+   *  agent remembers its earlier work — used when a chat message wakes a finished agent. */
+  resumeSessionRef?: string;
 }
 
 /**
@@ -32,7 +36,8 @@ export interface LaunchContext {
 export interface AgentHandle {
   agentId: string;
   kind: "process" | "manual";
-  /** "output" (stream text), "exit" ({ code }), "error" (Error). Piped into hub logs by the CLI. */
+  /** "output" (stream text), "exit" ({ code }), "error" (Error), "session" (runner session id
+   *  string, when the runner exposes one). Piped into hub logs / state by the supervisor. */
   events: EventEmitter;
   /** Terminate the underlying process (no-op for manual). */
   stop(): Promise<void>;

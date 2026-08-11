@@ -70,6 +70,12 @@ export class HubClient {
   log(agentId: string, message: string) {
     return this.post("/api/log", { agent_id: agentId, message });
   }
+  chat(sinceId?: number) {
+    return this.get(`/api/chat${sinceId ? `?since_id=${sinceId}` : ""}`);
+  }
+  sendChat(text: string, to?: string) {
+    return this.post("/api/chat", { text, to });
+  }
   stop() {
     return this.post("/api/stop", {});
   }

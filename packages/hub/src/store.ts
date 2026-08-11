@@ -12,8 +12,10 @@ import {
   resolveServiceSlug,
   writeContractRevisionToDisk,
   buildResumeBrief,
+  type AgentActivityState,
   type AgentConfig,
   type BoardItem,
+  type ChatMessage,
   type Checkpoint,
   type CheckpointKind,
   type Contract,
@@ -58,6 +60,8 @@ export interface ToolRejection {
 
 const MAX_PLAN_ITEMS = 15;
 const MAX_LOGS_IN_MEMORY = 2000;
+const MAX_CHAT_IN_MEMORY = 1000;
+const MAX_CHAT_TEXT = 4000;
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -90,6 +94,7 @@ export class SessionStore {
   private state: SessionState = emptySession();
   private planWaiters: Array<(decision: PlanDecision) => void> = [];
   private checkpointWaiters: Map<string, Array<() => void>> = new Map();
+  private chatWaiters: Map<string, Array<() => void>> = new Map();
 
   constructor(private persistFile: string) {}
 
@@ -108,6 +113,11 @@ export class SessionStore {
       const parsed = JSON.parse(raw) as SessionState;
       if (!parsed.active) return false;
       this.state = { ...emptySession(), ...parsed };
+      // Agent processes don't survive a hub restart — reset live activity so the dashboard
+      // doesn't show a stale "replying…" indicator that can never resolve.
+      for (const id of Object.keys(this.state.agentActivity)) {
+        this.state.agentActivity[id] = { state: "offline", detail: "hub restarted", since: nowIso() };
+      }
       return true;
     } catch {
       return false;
@@ -167,6 +177,26 @@ export class SessionStore {
     return { ok: true };
   }
 
+  /** Change the live session mode (dashboard "Ask" toggle). Turning ask on/off is conversational:
+   *  we announce it in chat so agents already running pick it up on their next get_chat and comply —
+   *  "ask mode comes in chat", not a pre-start switch. */
+  setLiveMode(mode: string): { ok: true; mode: Mode } | ToolRejection {
+    if (!this.state.active) return this.rejection("No active session.");
+    if (mode !== "auto-run" && mode !== "checkpoint" && mode !== "ask") {
+      return this.rejection(`Unknown mode "${mode}". Use auto-run | checkpoint | ask.`);
+    }
+    if (this.state.mode === mode) return { ok: true, mode };
+    this.state.mode = mode;
+    this.persist();
+    this.emit({ type: "status", data: this.getStatus() });
+    const text =
+      mode === "ask"
+        ? "Ask mode is ON — from now on, confirm each significant step with me here in chat before you do it, and answer my questions before continuing."
+        : `Ask mode is OFF — resume working in ${mode} style; keep me posted here in chat.`;
+    this.postChat("user", text, "all");
+    return { ok: true, mode };
+  }
+
   /** Archive to history and reset. Returns the archive path (or null if nothing active). */
   stopSession(historyDirPath: string): string | null {
     if (!this.state.active) return null;
@@ -198,6 +228,8 @@ export class SessionStore {
     }
     // Idempotent: re-register just refreshes the timestamp.
     this.state.registrations[agentId] = { workspacePath, connectedAt: nowIso() };
+    // A registering agent is a working agent — clears "starting"/"reconnecting" in the UI.
+    this.state.agentActivity[agentId] = { state: "working", since: nowIso() };
     this.persist();
     this.emit({ type: "registration", data: this.registrationStatus() });
     return { ok: true, agentId, role: agent.role };
@@ -645,6 +677,78 @@ export class SessionStore {
     return this.state.logs;
   }
 
+  // ── Chat (user ↔ agents) ────────────────────────────────────────────────────
+
+  /** A message concerns an agent when it targets it (directly or via "all") and isn't its own. */
+  private chatConcerns(msg: ChatMessage, agentId: string): boolean {
+    return msg.from !== agentId && (msg.to === agentId || msg.to === "all");
+  }
+
+  postChat(from: string, text: string, to?: string): { ok: true; message: ChatMessage } | ToolRejection {
+    if (!this.state.active) return this.rejection("No active session.");
+    const isAgent = this.state.agents.some((a) => a.id === from);
+    if (from !== "user" && !isAgent) return this.rejection(`Unknown chat sender "${from}".`);
+    const clean = String(text ?? "").trim();
+    if (!clean) return this.rejection("Chat message is empty.");
+    // Agents talk to the user; the user talks to "all" or one agent.
+    const target = from === "user" ? (to && to.trim() ? to.trim() : "all") : "user";
+    if (target !== "user" && target !== "all" && !this.state.agents.some((a) => a.id === target)) {
+      return this.rejection(`Unknown chat recipient "${target}". Use "all" or one of: ${this.state.agents.map((a) => a.id).join(", ")}`);
+    }
+
+    const message: ChatMessage = {
+      id: ++this.state.chatVersion,
+      from,
+      to: target,
+      text: clean.slice(0, MAX_CHAT_TEXT),
+      timestamp: nowIso(),
+    };
+    this.state.chat.push(message);
+    if (this.state.chat.length > MAX_CHAT_IN_MEMORY) {
+      this.state.chat.splice(0, this.state.chat.length - MAX_CHAT_IN_MEMORY);
+    }
+    this.persist();
+    this.emit({ type: "chat", data: message });
+
+    // Wake agents long-polling for a message that concerns them.
+    for (const [agentId, waiters] of this.chatWaiters) {
+      if (!this.chatConcerns(message, agentId) || waiters.length === 0) continue;
+      this.chatWaiters.set(agentId, []);
+      for (const w of waiters) w();
+    }
+    return { ok: true, message };
+  }
+
+  /** Whole conversation (or deltas via since_id). One shared transcript — everyone sees everything. */
+  getChat(sinceId?: number): object {
+    const messages =
+      sinceId && sinceId > 0 ? this.state.chat.filter((m) => m.id > sinceId) : this.state.chat;
+    return { chatVersion: this.state.chatVersion, messages };
+  }
+
+  /** Long-poll: resolves when a message concerning agentId newer than sinceId arrives, or times out. */
+  awaitChat(agentId: string, sinceId: number, timeoutMs: number): Promise<object> {
+    const pendingFor = (id: string) =>
+      this.state.chat.filter((m) => m.id > sinceId && this.chatConcerns(m, id));
+    if (!this.state.active || pendingFor(agentId).length > 0) {
+      return Promise.resolve({ chatVersion: this.state.chatVersion, messages: pendingFor(agentId) });
+    }
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        const list = this.chatWaiters.get(agentId) ?? [];
+        this.chatWaiters.set(agentId, list.filter((w) => w !== waiter));
+        resolve({ chatVersion: this.state.chatVersion, messages: [], pending: true, retry: true });
+      }, timeoutMs);
+      const waiter = () => {
+        clearTimeout(timer);
+        resolve({ chatVersion: this.state.chatVersion, messages: pendingFor(agentId) });
+      };
+      const list = this.chatWaiters.get(agentId) ?? [];
+      list.push(waiter);
+      this.chatWaiters.set(agentId, list);
+    });
+  }
+
   // ── Checkpoints ─────────────────────────────────────────────────────────────
 
   postCheckpoint(
@@ -748,6 +852,7 @@ export class SessionStore {
         planPosted: !!s.planProposals[a.id],
         checkpoint: s.checkpoints[a.id] ?? null,
         tokens: s.tokensByAgent[a.id] ?? 0,
+        activity: s.agentActivity[a.id] ?? null,
       })),
       totalTokens: Object.values(s.tokensByAgent).reduce((sum, n) => sum + n, 0),
       boardVersion: s.boardVersion,
@@ -770,6 +875,17 @@ export class SessionStore {
   /** Supervisor reports a launch/registration failure — surfaced to clients via status. */
   setLaunchError(message: string | null): void {
     this.state.launchError = message;
+    this.persist();
+    this.emit({ type: "status", data: this.getStatus() });
+  }
+
+  /** Supervisor reports an agent's live process state (working / reconnecting / offline…) —
+   *  surfaced via status so the dashboard can show "reconnecting… / replying…" in the chat. */
+  setAgentActivity(agentId: string, state: AgentActivityState, detail?: string): void {
+    if (!this.state.active) return;
+    const prev = this.state.agentActivity[agentId];
+    if (prev && prev.state === state && prev.detail === detail) return;
+    this.state.agentActivity[agentId] = { state, detail, since: nowIso() };
     this.persist();
     this.emit({ type: "status", data: this.getStatus() });
   }

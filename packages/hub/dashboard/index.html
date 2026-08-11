@@ -6,395 +6,324 @@
 <title>BroCode</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Outfit:wght@500;600;700&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
 <style>
+  /* ── Signal design system: sharp 2px rules, mono labels, signal-orange accent ── */
+  /* Light mode: ALL text is black (labels included) — only placeholders stay lighter so an
+     empty field doesn't look pre-filled. */
   :root {
-    --bg: #eef3f1;
-    --bg-accent: #d7ebe4;
-    --panel: rgba(255, 255, 255, 0.86);
-    --panel-solid: #ffffff;
-    --border: #d5e0db;
-    --text: #12201c;
-    --dim: #5f726b;
-    --accent: #0f766e;
-    --accent-hover: #0d9488;
-    --accent-soft: #ccfbf1;
-    --green: #15803d;
-    --amber: #b45309;
-    --red: #be123c;
-    --chip: #e7efec;
-    --shadow: 0 10px 30px rgba(18, 32, 28, 0.06);
-    --radius: 14px;
-    --font: "Source Sans 3", "Segoe UI", sans-serif;
-    --display: "Outfit", "Source Sans 3", sans-serif;
-    --mono: "IBM Plex Mono", ui-monospace, monospace;
+    --bg: #f4f4f0; --panel: #ffffff; --ink: #000000; --mut: #000000;
+    --line: #000000; --chip: #eaeae4; --acc: #e8491c; --accink: #ffffff;
+    --ph: #55595e;
+  }
+  :root[data-th="dark"] {
+    --bg: #0c0d0e; --panel: #141517; --ink: #f2f3ef; --mut: #8b9096;
+    --line: #f2f3ef; --chip: #1e2023; --acc: #ff5a2a; --accink: #101112;
+    --ph: #8b9096;
   }
   @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #0c1412;
-      --bg-accent: #14302a;
-      --panel: rgba(18, 28, 25, 0.9);
-      --panel-solid: #121c19;
-      --border: #243530;
-      --text: #e8f0ed;
-      --dim: #93a8a0;
-      --accent: #2dd4bf;
-      --accent-hover: #5eead4;
-      --accent-soft: #134e4a;
-      --green: #4ade80;
-      --amber: #fbbf24;
-      --red: #fb7185;
-      --chip: #1a2a26;
-      --shadow: 0 12px 36px rgba(0, 0, 0, 0.35);
+    :root:not([data-th="light"]) {
+      --bg: #0c0d0e; --panel: #141517; --ink: #f2f3ef; --mut: #8b9096;
+      --line: #f2f3ef; --chip: #1e2023; --acc: #ff5a2a; --accink: #101112;
+      --ph: #8b9096;
     }
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
   body {
-    font-family: var(--font);
-    color: var(--text);
-    line-height: 1.5;
-    font-size: 15px;
-    min-height: 100vh;
-    background:
-      radial-gradient(1200px 500px at 8% -10%, var(--bg-accent), transparent 55%),
-      radial-gradient(900px 420px at 100% 0%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 50%),
-      var(--bg);
-    padding: 28px 20px 48px;
+    background: var(--bg); color: var(--ink);
+    font-family: 'Space Grotesk', sans-serif; font-size: 14px; line-height: 1.5;
   }
-  .shell { max-width: 1120px; margin: 0 auto; }
-  h1 {
-    font-family: var(--display);
-    font-size: 28px;
-    font-weight: 700;
-    letter-spacing: -0.03em;
-    line-height: 1.1;
+  .mono { font-family: 'JetBrains Mono', monospace; }
+  button { font: inherit; border: none; border-radius: 0; background: none; color: var(--ink); cursor: pointer; }
+  input, select, textarea {
+    font: 400 14px 'JetBrains Mono', monospace; color: var(--ink);
+    background: var(--panel); border: 2px solid var(--line); border-radius: 0; padding: 12px 14px;
   }
-  h2 {
-    font-family: var(--display);
-    font-size: 12px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--dim);
-    margin-bottom: 12px;
+  input:focus, select:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--acc); outline-offset: -2px; }
+  ::placeholder { color: var(--ph); }
+
+  .app { height: 100vh; overflow: hidden; display: flex; flex-direction: column; border: 2px solid var(--line); background: var(--bg); }
+  .sec-label { font: 700 11px 'JetBrains Mono', monospace; letter-spacing: .2em; color: var(--mut); }
+
+  /* ── Header ── */
+  header { display: flex; align-items: stretch; border-bottom: 2px solid var(--line); }
+  .logo-sq {
+    width: 64px; display: flex; align-items: center; justify-content: center;
+    border-right: 2px solid var(--line); background: var(--acc);
+    font: 700 22px 'JetBrains Mono', monospace; color: var(--accink);
   }
-  .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-  .panel {
-    background: var(--panel);
-    backdrop-filter: blur(10px);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 18px 20px;
-    margin-bottom: 16px;
-    box-shadow: var(--shadow);
+  .brand { padding: 18px 28px; display: flex; flex-direction: column; justify-content: center; }
+  .brand .title { font: 700 30px 'Space Grotesk', sans-serif; letter-spacing: -.02em; line-height: 1; text-transform: uppercase; }
+  .brand .tag { font: 500 11px 'JetBrains Mono', monospace; letter-spacing: .22em; color: var(--mut); margin-top: 5px; }
+  .hdr-btn {
+    display: flex; align-items: center; gap: 10px; padding: 0 28px;
+    border-left: 2px solid var(--line); font: 500 12px 'JetBrains Mono', monospace;
   }
-  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-  @media (max-width: 720px) {
-    .grid { grid-template-columns: 1fr; }
-    body { padding: 16px 12px 32px; }
-    h1 { font-size: 24px; }
+  #th-btn { color: var(--mut); letter-spacing: .1em; }
+  #th-btn:hover { color: var(--acc); }
+  #conn { color: var(--mut); }
+  #conn.live { color: var(--acc); }
+  #conn .dot { width: 9px; height: 9px; background: currentColor; }
+
+  /* ── Goal bar ── */
+  .goalbar { display: flex; align-items: center; border-bottom: 2px solid var(--line); }
+  .goalbar .goal { padding: 16px 28px; font: 500 20px 'Space Grotesk', sans-serif; flex: 1; min-width: 0; }
+  .goalbar .chips { display: flex; gap: 8px; padding: 0 20px; flex-wrap: wrap; }
+  .chip { font: 500 12px 'JetBrains Mono', monospace; padding: 7px 12px; background: var(--chip); white-space: nowrap; }
+  .chip .on { color: var(--acc); }
+  .phase {
+    padding: 16px 24px; border-left: 2px solid var(--line); background: var(--acc); color: var(--accink);
+    font: 700 12px 'JetBrains Mono', monospace; letter-spacing: .14em; text-transform: uppercase; white-space: nowrap;
   }
 
-  header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 16px;
-    margin-bottom: 22px;
-    padding: 4px 2px 8px;
+  /* ── Review strip (plan approval / checkpoints) ── */
+  #alert { border-bottom: 2px solid var(--line); background: var(--acc); color: var(--accink); padding: 14px 28px; font: 700 12px 'JetBrains Mono', monospace; letter-spacing: .06em; }
+  #alert .fix { display: block; margin-top: 6px; font-weight: 500; opacity: .9; }
+  #review { border-bottom: 2px solid var(--line); padding: 22px 28px; max-height: 44vh; overflow-y: auto; flex: 0 0 auto; }
+  #review .postrow { margin-top: 10px; }
+  #review .postrow .state { font: 500 12px 'JetBrains Mono', monospace; color: var(--mut); margin-left: 8px; }
+  #review .quote { border-left: 4px solid var(--acc); padding-left: 14px; font: 500 15px/1.5 'Space Grotesk', sans-serif; margin: 10px 0; }
+  #review .quote .who { font: 700 12px 'JetBrains Mono', monospace; letter-spacing: .08em; color: var(--acc); margin-right: 8px; }
+  #review .row { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; align-items: stretch; }
+  #review input[type=text] { flex: 1; min-width: 200px; }
+  .btn-acc {
+    font: 700 13px 'JetBrains Mono', monospace; letter-spacing: .1em;
+    padding: 14px 28px; background: var(--acc); color: var(--accink);
   }
-  .brand { display: flex; align-items: center; gap: 14px; }
-  .brand-mark {
-    width: 42px; height: 42px; border-radius: 12px;
-    display: grid; place-items: center;
-    background: linear-gradient(145deg, var(--accent), color-mix(in srgb, var(--accent) 55%, #0f172a));
-    color: #fff;
-    font-family: var(--display);
-    font-weight: 700;
-    font-size: 15px;
-    letter-spacing: -0.04em;
-    box-shadow: 0 8px 18px color-mix(in srgb, var(--accent) 28%, transparent);
-  }
-  .brand-copy .tagline {
-    margin-top: 2px;
-    font-size: 13px;
-    color: var(--dim);
-  }
-  #conn {
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--dim);
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    padding: 6px 12px;
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-  }
-  #conn.live::before, #conn.down::before {
-    content: "";
-    width: 8px; height: 8px; border-radius: 50%;
-  }
-  #conn.live::before { background: var(--green); box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 25%, transparent); }
-  #conn.down::before { background: var(--red); }
+  .btn-line { font: 500 13px 'JetBrains Mono', monospace; padding: 14px 20px; border: 2px solid var(--line); }
+  .btn-line:hover, .btn-acc:hover { opacity: .85; }
 
-  .badge {
-    display: inline-block;
-    padding: 3px 10px;
-    border-radius: 8px;
-    font-size: 12px;
-    font-weight: 700;
-    letter-spacing: 0.02em;
-    background: var(--chip);
-  }
-  .badge.phase-planning { background: color-mix(in srgb, var(--amber) 18%, transparent); color: var(--amber); }
-  .badge.phase-executing { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
-  .badge.phase-done { background: color-mix(in srgb, var(--green) 18%, transparent); color: var(--green); }
-  .badge.phase-init, .badge.phase-idle { color: var(--dim); }
+  /* ── Columns ── */
+  .cols { flex: 1; display: flex; align-items: stretch; min-height: 0; }
+  .col-chat { flex: 1; min-width: 0; border-right: 2px solid var(--line); display: flex; flex-direction: column; }
+  .col-chat > .sec-label { padding: 22px 36px 0; }
+  #chat { flex: 1; display: flex; flex-direction: column; gap: 20px; padding: 22px 36px; overflow-y: auto; min-height: 240px; }
+  .msg-user { align-self: flex-end; max-width: 70%; }
+  .msg-user .meta { font: 500 11px 'JetBrains Mono', monospace; color: var(--mut); text-align: right; margin-bottom: 6px; }
+  .msg-user .bub { background: var(--acc); color: var(--accink); padding: 14px 18px; font: 500 15px 'Space Grotesk', sans-serif; white-space: pre-wrap; word-break: break-word; }
+  .msg-agent { max-width: 84%; border: 1px solid var(--line); padding: 16px 20px; }
+  .msg-agent .head { display: flex; gap: 10px; align-items: baseline; margin-bottom: 8px; }
+  .msg-agent .who { font: 700 12px 'JetBrains Mono', monospace; letter-spacing: .08em; color: var(--acc); }
+  .msg-agent .time { font: 500 11px 'JetBrains Mono', monospace; color: var(--mut); }
+  .msg-agent .body { font: 400 14px/1.65 'Space Grotesk', sans-serif; white-space: pre-wrap; word-break: break-word; }
+  .empty { font: 400 12px 'JetBrains Mono', monospace; color: var(--mut); }
 
-  .agent { display: flex; align-items: center; gap: 10px; padding: 8px 0; }
-  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--border); flex: 0 0 auto; }
-  .dot.on { background: var(--green); box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 22%, transparent); }
-  .agent .role { font-weight: 650; }
-  .agent .runner {
-    font-size: 12px; color: var(--dim); background: var(--chip);
-    padding: 2px 8px; border-radius: 7px; font-weight: 500;
-  }
+  /* ── Live agent state row in the chat (reconnecting / replying) ── */
+  .typing { display: flex; gap: 10px; align-items: center; font: 500 12px 'JetBrains Mono', monospace; color: var(--mut); }
+  .typing .who { font-weight: 700; letter-spacing: .08em; color: var(--acc); }
+  .typing .dots { display: inline-flex; gap: 4px; }
+  .typing .dots i { width: 6px; height: 6px; background: var(--acc); animation: bc-blink 1.2s infinite; }
+  .typing .dots i:nth-child(2) { animation-delay: .2s; }
+  .typing .dots i:nth-child(3) { animation-delay: .4s; }
+  @keyframes bc-blink { 0%, 80%, 100% { opacity: .2; } 40% { opacity: 1; } }
 
-  .item {
-    display: flex; align-items: baseline; gap: 10px;
-    padding: 10px 0; border-bottom: 1px solid var(--border);
+  .composer { display: flex; border-top: 2px solid var(--line); }
+  #chat-to {
+    font: 500 13px 'JetBrains Mono', monospace; padding: 16px 20px; background: var(--chip);
+    border: none; border-right: 2px solid var(--line); cursor: pointer; appearance: none; text-transform: uppercase;
   }
-  .item:last-child { border-bottom: 0; }
-  .item .id { font-family: var(--mono); color: var(--dim); font-size: 12px; min-width: 26px; }
-  .item .st { font-size: 15px; width: 18px; flex: 0 0 auto; text-align: center; }
-  .item .who {
-    font-size: 12px; color: var(--dim); background: var(--chip);
-    padding: 2px 8px; border-radius: 7px; margin-left: auto; white-space: nowrap;
+  .composer-btn {
+    font: 700 13px 'JetBrains Mono', monospace; letter-spacing: .06em; padding: 16px 18px;
+    background: var(--chip); border: none; border-right: 2px solid var(--line); cursor: pointer; white-space: nowrap;
   }
-  .item .paths {
-    display: block; font-size: 12px; color: var(--dim);
-    font-family: var(--mono); margin-top: 3px;
-  }
-  .unassigned { background: color-mix(in srgb, var(--amber) 10%, transparent); border-radius: 8px; padding: 4px 6px; }
+  .composer-btn:hover { color: var(--acc); }
+  .composer-btn.on { background: var(--acc); color: var(--accink); }
+  .composer-btn.on:hover { color: var(--accink); opacity: .85; }
+  #chat-input { flex: 1; min-width: 0; padding: 16px 20px; font: 400 14px 'JetBrains Mono', monospace; background: none; border: none; }
+  #chat-send { font: 700 13px 'JetBrains Mono', monospace; letter-spacing: .1em; padding: 16px 32px; background: var(--acc); color: var(--accink); }
 
-  button {
-    font: inherit; font-weight: 650; border: 1px solid var(--border);
-    background: var(--panel-solid); color: var(--text);
-    border-radius: 10px; padding: 8px 14px; cursor: pointer;
-    transition: background .15s ease, border-color .15s ease, transform .12s ease;
+  /* ── Side strips: ACTIVITY and TASKS live behind vertical buttons that open modals ── */
+  .col-strip {
+    flex: 0 0 56px; border-right: 2px solid var(--line); display: flex; flex-direction: column;
+    align-items: center; gap: 14px; padding: 22px 0; cursor: pointer; user-select: none; background: var(--chip);
   }
-  button.primary {
-    background: var(--accent); color: #fff; border-color: transparent;
-  }
-  button.primary:hover { background: var(--accent-hover); }
-  button:hover { border-color: color-mix(in srgb, var(--accent) 35%, var(--border)); }
-  button:active { transform: translateY(1px); }
-  button:disabled { opacity: .5; cursor: default; transform: none; }
-  select, input[type=text] {
-    font: inherit; padding: 8px 10px; border: 1px solid var(--border);
-    border-radius: 10px; background: var(--panel-solid); color: var(--text);
-  }
-  input[type=text] { flex: 1; min-width: 140px; }
-  select:focus, input[type=text]:focus, textarea:focus, button:focus-visible {
-    outline: 2px solid color-mix(in srgb, var(--accent) 45%, transparent);
-    outline-offset: 1px;
-  }
+  .col-strip:hover { background: var(--acc); color: var(--accink); }
+  .col-strip:hover .tog { color: var(--accink); }
+  .col-strip .tog { font: 700 14px 'JetBrains Mono', monospace; color: var(--acc); }
+  .col-strip .vlabel { writing-mode: vertical-rl; font: 700 11px 'JetBrains Mono', monospace; letter-spacing: .2em; white-space: nowrap; }
+  .ev { padding: 12px 24px; border-top: 1px solid var(--chip); }
+  .ev .l1 { display: flex; gap: 10px; align-items: baseline; font-family: 'JetBrains Mono', monospace; }
+  .ev .t { font-size: 11px; color: var(--mut); }
+  .ev .k { font-size: 10px; font-weight: 700; letter-spacing: .1em; color: var(--acc); }
+  .ev .a { font-size: 10px; font-weight: 700; letter-spacing: .04em; color: var(--mut); }
+  .ev .d { font: 400 12px/1.5 'Space Grotesk', sans-serif; margin-top: 5px; word-break: break-word; }
 
-  .review { border-left: 3px solid var(--amber); }
-  .assign-row { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
-  .log {
-    font-family: var(--mono); font-size: 12.5px; max-height: 320px; overflow-y: auto;
-    background: color-mix(in srgb, var(--chip) 65%, transparent);
-    border-radius: 10px; padding: 10px 12px;
-  }
-  .log .line { padding: 3px 0; border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent); }
-  .log .who { color: var(--accent); font-weight: 600; }
-  .contract { padding: 10px 0; border-bottom: 1px solid var(--border); }
-  .contract:last-child { border-bottom: 0; }
-  .contract summary { cursor: pointer; font-weight: 650; }
-  .contract .headline { font-weight: 650; }
-  .contract .svc { font-size: 12px; color: var(--dim); font-weight: 400; }
+  /* ── Rail: contracts get the big space; stop pinned at the bottom ── */
+  .rail { flex: 0 0 440px; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+  .rail-head { display: flex; align-items: center; justify-content: space-between; padding: 22px 28px 12px; flex: 0 0 auto; }
+  .rail-head .count { font: 700 11px 'JetBrains Mono', monospace; color: var(--acc); }
+  .rail-body { flex: 1; overflow-y: auto; min-height: 0; padding: 4px 28px 20px; }
+  .task { display: flex; gap: 12px; align-items: flex-start; }
+  .task + .task { margin-top: 14px; }
+  .task .st { font: 700 12px 'JetBrains Mono', monospace; background: var(--chip); padding: 2px 7px; }
+  .task .st.done { color: var(--acc); }
+  .task .st.dim { color: var(--mut); }
+  .task .title { font: 500 14px 'Space Grotesk', sans-serif; }
+  .task .paths { font: 400 11px 'JetBrains Mono', monospace; color: var(--mut); margin-top: 4px; word-break: break-all; }
+  .contract + .contract { margin-top: 18px; }
+  .contract summary { list-style: none; cursor: pointer; }
+  .contract summary::-webkit-details-marker { display: none; }
+  .contract .quote { border-left: 4px solid var(--acc); padding-left: 14px; font: 500 15px/1.5 'Space Grotesk', sans-serif; }
+  .contract .cmeta { font: 400 11px 'JetBrains Mono', monospace; color: var(--mut); margin-top: 8px; }
   .contract pre {
-    white-space: pre-wrap; font-size: 12px; color: var(--dim); margin-top: 8px;
-    background: var(--chip); padding: 10px; border-radius: 10px; font-family: var(--mono);
+    white-space: pre-wrap; font: 400 12px/1.5 'JetBrains Mono', monospace; color: var(--mut);
+    margin-top: 10px; background: var(--chip); padding: 12px 14px; word-break: break-word;
   }
-  .contract pre .add { color: var(--green); }
-  .contract pre .del { color: var(--red); }
-  .why { font-size: 13px; color: var(--dim); margin: 2px 0; }
-  .why b { color: var(--text); font-weight: 650; }
-  .plan-summary {
-    background: var(--accent-soft); border-radius: 10px;
-    padding: 10px 12px; margin-bottom: 8px; font-size: 13px;
-  }
-  .plan-summary .who { color: var(--accent); font-weight: 700; }
-  .muted { color: var(--dim); }
-  .checkpoint { border-left: 3px solid var(--accent); }
-  .empty { color: var(--dim); font-style: italic; }
+  .contract pre .add { color: var(--acc); }
+  .rail-fill { flex: 1; }
+  .rail-foot { padding: 16px 28px; border-top: 2px solid var(--line); font: 700 11px 'JetBrains Mono', monospace; letter-spacing: .14em; color: var(--mut); cursor: pointer; }
+  .rail-foot:hover { background: var(--chip); color: var(--acc); }
 
-  label { display: block; font-weight: 650; font-size: 13px; margin: 14px 0 6px; }
-  .agent-setup {
-    border: 1px solid var(--border); border-radius: 12px;
-    padding: 16px; margin-bottom: 12px; background: color-mix(in srgb, var(--panel-solid) 70%, transparent);
-  }
-  .agent-setup h3 {
-    font-family: var(--display); font-size: 15px; font-weight: 650; margin-bottom: 4px;
-  }
-  .field-row { display: flex; gap: 8px; align-items: center; }
+  /* ── Setup / start views ── */
+  .form-view { max-width: 920px; padding: 40px 36px 64px; flex: 1; min-height: 0; overflow-y: auto; width: 100%; }
+  .form-view h2 { font: 700 11px 'JetBrains Mono', monospace; letter-spacing: .2em; color: var(--mut); margin-bottom: 20px; }
+  .form-view label { display: block; font: 700 11px 'JetBrains Mono', monospace; letter-spacing: .14em; color: var(--mut); margin: 18px 0 8px; text-transform: uppercase; }
+  .agent-setup { border: 2px solid var(--line); padding: 20px; margin-bottom: 16px; background: var(--panel); }
+  .agent-setup h3 { font: 700 15px 'Space Grotesk', sans-serif; text-transform: uppercase; letter-spacing: .04em; }
+  .field-row { display: flex; gap: 10px; align-items: center; }
   .field-row input[type=text] { flex: 1; }
-  textarea {
-    width: 100%; font: inherit; padding: 10px 12px; border: 1px solid var(--border);
-    border-radius: 10px; background: var(--panel-solid); color: var(--text);
-    resize: vertical; min-height: 72px;
-  }
-  .runner-ok { color: var(--green); font-size: 12px; }
-  .runner-bad { color: var(--red); font-size: 12px; }
-  .mode-opt {
-    display: block; padding: 12px 14px; border: 1px solid var(--border);
-    border-radius: 12px; margin: 8px 0; cursor: pointer;
-    transition: border-color .15s ease, background .15s ease;
-  }
-  .mode-opt:hover { border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); background: color-mix(in srgb, var(--accent-soft) 40%, transparent); }
-  .mode-opt input { margin-right: 8px; }
-  .mode-opt .desc { color: var(--dim); font-size: 12px; margin-left: 22px; }
-  .err { color: var(--red); font-size: 13px; margin-top: 8px; }
+  textarea { width: 100%; resize: vertical; min-height: 84px; font-family: 'Space Grotesk', sans-serif; font-size: 15px; }
+  .mode-opt { display: block; border: 2px solid var(--line); padding: 14px 16px; margin: 10px 0; cursor: pointer; background: var(--panel); }
+  .mode-opt:hover { border-color: var(--acc); }
+  .mode-opt b { font: 700 13px 'JetBrains Mono', monospace; letter-spacing: .08em; text-transform: uppercase; }
+  .mode-opt .desc { color: var(--mut); font-size: 13px; margin-left: 26px; display: block; }
+  .mode-opt input { margin-right: 10px; accent-color: var(--acc); }
+  .err { color: var(--acc); font: 500 12px 'JetBrains Mono', monospace; margin-top: 12px; }
+  .hint { color: var(--mut); font-size: 13px; margin-bottom: 14px; }
 
-  .modal-bg {
-    position: fixed; inset: 0; background: rgba(10, 18, 16, .48);
-    display: flex; align-items: center; justify-content: center; z-index: 50;
-    backdrop-filter: blur(4px);
-  }
-  .modal {
-    background: var(--panel-solid); border: 1px solid var(--border);
-    border-radius: 16px; width: min(560px, 92vw); max-height: 80vh;
-    display: flex; flex-direction: column; box-shadow: var(--shadow);
-  }
-  .modal-head {
-    padding: 16px 18px; border-bottom: 1px solid var(--border);
-    font-family: var(--display); font-weight: 650; font-size: 16px;
-  }
-  .crumb {
-    padding: 10px 18px; font-family: var(--mono); font-size: 12px;
-    color: var(--dim); word-break: break-all; background: var(--chip);
-  }
-  .dir-list { overflow-y: auto; padding: 8px; flex: 1; }
-  .dir-item {
-    padding: 9px 12px; border-radius: 9px; cursor: pointer; font-size: 13px;
-    display: flex; align-items: center; gap: 8px;
-  }
-  .dir-item:hover { background: var(--chip); }
-  .dir-item::before {
-    content: ""; width: 8px; height: 8px; border-radius: 2px;
-    background: color-mix(in srgb, var(--accent) 55%, var(--dim));
-    flex: 0 0 auto;
-  }
-  .modal-foot {
-    padding: 14px 18px; border-top: 1px solid var(--border);
-    display: flex; gap: 8px; justify-content: flex-end;
+  /* ── Modals ── */
+  .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.55); display: flex; align-items: center; justify-content: center; z-index: 50; }
+  .modal { background: var(--panel); border: 2px solid var(--line); width: min(720px, 94vw); max-height: 82vh; display: flex; flex-direction: column; }
+  .modal-head { padding: 16px 20px; border-bottom: 2px solid var(--line); font: 700 12px 'JetBrains Mono', monospace; letter-spacing: .14em; text-transform: uppercase; }
+  .modal-body { overflow-y: auto; flex: 1; }
+  .modal-foot { padding: 14px 20px; border-top: 2px solid var(--line); display: flex; gap: 10px; justify-content: flex-end; }
+  .crumb { padding: 10px 20px; font: 400 12px 'JetBrains Mono', monospace; color: var(--mut); word-break: break-all; background: var(--chip); }
+  .dir-item { padding: 10px 20px; cursor: pointer; font: 400 13px 'JetBrains Mono', monospace; border-top: 1px solid var(--chip); }
+  .dir-item:hover { background: var(--chip); color: var(--acc); }
+
+  @media (max-width: 1100px) {
+    .app { height: auto; min-height: 100vh; overflow: visible; }
+    .cols { flex-direction: column; }
+    #chat { min-height: 320px; max-height: 60vh; }
+    .col-chat { border-right: none; border-bottom: 2px solid var(--line); }
+    .rail { flex: none; width: 100%; border-right: none; }
+    .rail-body { max-height: 46vh; }
+    .col-strip { flex: none; width: 100%; flex-direction: row; padding: 12px 20px; border-right: none; border-bottom: 2px solid var(--line); }
+    .col-strip .vlabel { writing-mode: horizontal-tb; }
+    .brand .title { font-size: 22px; }
+    .goalbar .goal { font-size: 16px; }
   }
 </style>
 </head>
 <body>
-  <div class="shell">
+<div class="app">
   <header>
+    <div class="logo-sq">/\</div>
     <div class="brand">
-      <div class="brand-mark" aria-hidden="true">BC</div>
-      <div class="brand-copy">
-        <h1>BroCode</h1>
-        <div class="tagline">multi-agent collaboration</div>
-      </div>
+      <span class="title">BroCode</span>
+      <span class="tag">MULTI-AGENT COLLABORATION</span>
     </div>
-    <div id="conn" class="down">connecting…</div>
+    <div style="flex:1"></div>
+    <button id="th-btn" class="hdr-btn" onclick="toggleTheme()">☾ DARK</button>
+    <div id="conn" class="hdr-btn"><span class="dot"></span><span id="conn-txt">CONNECTING…</span></div>
   </header>
 
-  <!-- Setup wizard (shown when there is no config) -->
-  <div id="wizard-view" style="display:none">
-    <div class="panel">
-      <h2>Set up your two agents</h2>
-      <div class="muted" style="font-size:13px;margin-bottom:8px">Pick a folder for each agent, choose which AI runs it, and name its role. Use separate folders (or a monorepo — see the roles).</div>
-      <div id="agent-setups"></div>
-      <label>Mode</label>
-      <div class="field-row">
-        <select id="w-preset">
-          <option value="frontend-backend">frontend-backend</option>
-          <option value="builder-reviewer">builder-reviewer</option>
-          <option value="architect-implementer">architect-implementer</option>
-          <option value="feature-tests">feature-tests</option>
-          <option value="service-ab">service-ab</option>
-          <option value="custom">custom</option>
-        </select>
-        <select id="w-mode">
-          <option value="auto-run">auto-run (work to completion)</option>
-          <option value="checkpoint">checkpoint (pause at milestones)</option>
-        </select>
-      </div>
-      <div id="wizard-err" class="err"></div>
-      <div class="row" style="margin-top:14px">
-        <button class="primary" onclick="saveWizard()">Save configuration</button>
-      </div>
+  <!-- Setup wizard (no config yet) -->
+  <div id="wizard-view" class="form-view" style="display:none">
+    <h2>[ SET UP YOUR TWO AGENTS ]</h2>
+    <div class="hint">Pick a folder for each agent, choose which AI runs it, and name its role. Use separate folders (or a monorepo — see the roles).</div>
+    <div id="agent-setups"></div>
+    <label>Preset / Mode</label>
+    <div class="field-row">
+      <select id="w-preset">
+        <option value="frontend-backend">frontend-backend</option>
+        <option value="builder-reviewer">builder-reviewer</option>
+        <option value="architect-implementer">architect-implementer</option>
+        <option value="feature-tests">feature-tests</option>
+        <option value="service-ab">service-ab</option>
+        <option value="custom">custom</option>
+      </select>
+      <select id="w-mode">
+        <option value="auto-run">auto-run (work to completion)</option>
+        <option value="checkpoint">checkpoint (pause at milestones)</option>
+      </select>
+    </div>
+    <div id="wizard-err" class="err"></div>
+    <div style="margin-top:22px">
+      <button class="btn-acc" onclick="saveWizard()">SAVE CONFIGURATION →</button>
     </div>
   </div>
 
   <!-- Start a session (config exists, no active session) -->
-  <div id="start-view" style="display:none">
-    <div class="panel">
-      <div class="row" style="justify-content:space-between">
-        <h2>Start a session</h2>
-        <button onclick="showWizard()" style="font-size:12px">Reconfigure agents</button>
+  <div id="start-view" class="form-view" style="display:none">
+    <div style="display:flex;justify-content:space-between;align-items:baseline">
+      <h2>[ START A SESSION ]</h2>
+      <button class="btn-line" style="padding:8px 14px;font-size:11px" onclick="showWizard()">RECONFIGURE AGENTS</button>
+    </div>
+    <div id="start-agents" class="hint mono" style="font-size:12px"></div>
+    <label>What should the agents build?</label>
+    <textarea id="s-goal" placeholder="e.g. Add a health-check endpoint on the backend and a status badge on the frontend"></textarea>
+    <label>Mode</label>
+    <label class="mode-opt"><input type="radio" name="s-mode" value="checkpoint" checked><b>Checkpoint</b><span class="desc">Agents pause for your approval at milestones and before risky actions. Recommended.</span></label>
+    <label class="mode-opt"><input type="radio" name="s-mode" value="auto-run"><b>Auto-run</b><span class="desc">Agents work to completion without pausing. Faster, less oversight.</span></label>
+    <div class="hint" style="margin:6px 0 0">Want to confirm each step conversationally? Start the session, then flip <b>ASK</b> in the chat any time — agents will check with you before acting.</div>
+    <label class="mode-opt" style="border-color:transparent;background:none;padding-left:0"><input type="checkbox" id="s-plan" checked><b style="text-transform:none;letter-spacing:0">Plan first</b><span class="desc">Agents propose a breakdown you approve before they code.</span></label>
+    <div id="start-err" class="err"></div>
+    <div style="margin-top:22px">
+      <button class="btn-acc" onclick="startSession()">START SESSION →</button>
+    </div>
+  </div>
+
+  <!-- Live session -->
+  <div id="session-view" style="display:none;flex:1;flex-direction:column;min-height:0">
+    <div class="goalbar">
+      <div class="goal" id="goal">→</div>
+      <div class="chips" id="agents"></div>
+      <div class="phase" id="phase">IDLE</div>
+    </div>
+    <div id="alert" style="display:none"></div>
+    <div id="review" style="display:none"></div>
+    <div class="cols">
+      <!-- chat -->
+      <div class="col-chat">
+        <div class="sec-label">[ CHAT ]</div>
+        <div id="chat"><div class="empty">TALK WITH THE AGENTS HERE — THEY REPORT WHAT THEY DID; YOU SEND FOLLOW-UP INSTRUCTIONS (EVEN AFTER THEY FINISH).</div></div>
+        <div class="composer">
+          <button id="ask-toggle" class="composer-btn" onclick="toggleAsk()" title="Ask mode — agents confirm each step with you in chat before acting">ASK ○</button>
+          <select id="chat-to"><option value="all">ALL ▾</option></select>
+          <input type="text" id="chat-input" placeholder="> ask a question or give a new instruction_" onkeydown="if(event.key==='Enter')sendChat()" />
+          <button id="chat-send" onclick="sendChat()">SEND →</button>
+        </div>
       </div>
-      <div id="start-agents" class="muted" style="font-size:13px;margin-bottom:10px"></div>
-      <label>What should the agents build?</label>
-      <textarea id="s-goal" placeholder="e.g. Add a health-check endpoint on the backend and a status badge on the frontend"></textarea>
-      <label>Mode</label>
-      <label class="mode-opt"><input type="radio" name="s-mode" value="checkpoint" checked>Checkpoint<span class="desc">Agents pause for your approval at milestones and before risky actions. Recommended.</span></label>
-      <label class="mode-opt"><input type="radio" name="s-mode" value="auto-run">Auto-run<span class="desc">Agents work to completion without pausing. Faster, less oversight.</span></label>
-      <label class="mode-opt" style="border:0;padding-left:0"><input type="checkbox" id="s-plan" checked>Plan first (agents propose a breakdown you approve before they code)</label>
-      <div id="start-err" class="err"></div>
-      <div class="row" style="margin-top:12px">
-        <button class="primary" onclick="startSession()">Start session</button>
+      <!-- activity + tasks: vertical strip buttons, each opens a modal -->
+      <div class="col-strip" onclick="openActivityModal()" title="Open the raw agent activity log">
+        <span class="tog">⛶</span>
+        <span class="vlabel" id="act-vlabel">ACTIVITY · 0</span>
+      </div>
+      <div class="col-strip" onclick="openBoardModal()" title="Open the task board">
+        <span class="tog">⛶</span>
+        <span class="vlabel" id="board-vlabel">TASKS · 0</span>
+      </div>
+      <!-- rail: contracts own the big space -->
+      <div class="rail">
+        <div class="rail-head">
+          <span class="sec-label">[ CONTRACTS ]</span>
+          <span class="count" id="contract-count"></span>
+        </div>
+        <div class="rail-body" id="contracts"><div class="empty">NONE YET — AGENTS POST INTERFACE AGREEMENTS HERE THE MOMENT THEY DECIDE THEM.</div></div>
+        <div class="rail-foot" id="stop-btn" onclick="stopSession()">■ STOP &amp; ARCHIVE</div>
       </div>
     </div>
   </div>
-
-  <!-- Live session (existing view) -->
-  <div id="session-view" style="display:none">
-  <div class="panel" id="session-panel">
-    <div class="row" style="justify-content:space-between">
-      <div id="goal" style="font-weight:600; flex:1">No active session</div>
-      <span id="phase" class="badge phase-idle">idle</span>
-    </div>
-    <div id="agents" style="margin-top:10px"></div>
-    <div class="row" style="margin-top:10px">
-      <button id="stop-btn" onclick="stopSession()">Stop &amp; archive</button>
-      <span id="mode" class="muted" style="font-size:12px"></span>
-    </div>
-  </div>
-
-  <div id="review" class="panel review" style="display:none"></div>
-
-  <div class="grid">
-    <div class="panel">
-      <h2>Task board</h2>
-      <div id="board"><div class="empty">—</div></div>
-    </div>
-    <div class="panel">
-      <h2>Contracts</h2>
-      <div id="contracts"><div class="empty">none yet</div></div>
-    </div>
-  </div>
-
-  <div class="panel">
-    <h2>Activity</h2>
-    <div id="log" class="log"><div class="empty">—</div></div>
-  </div>
-  </div><!-- /session-view -->
 
   <div id="folder-modal"></div>
+  <div id="activity-modal"></div>
+  <div id="board-modal"></div>
+</div>
 
 <script>
 const $ = (id) => document.getElementById(id);
-let boardCache = [];
 
 async function api(method, path, body) {
   const res = await fetch(path, {
@@ -405,11 +334,56 @@ async function api(method, path, body) {
   return res.json().catch(() => ({}));
 }
 
-const ST = { open: "○", claimed: "◐", done: "✓", "out-of-scope": "⊘" };
-const STCOLOR = { open: "var(--dim)", claimed: "var(--amber)", done: "var(--green)", "out-of-scope": "var(--dim)" };
-
 function esc(s) { return String(s ?? "").replace(/[&<>]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;" }[c])); }
-function fmtTokens(n) { return n >= 1000 ? (n / 1000).toFixed(1).replace(/\.0$/, "") + "k" : String(n); }
+function fmtTokens(n) { return n >= 1000 ? (n / 1000).toFixed(1).replace(/\.0$/, "") + "K" : String(n); }
+function caps(s) { return String(s ?? "").toUpperCase().replace(/\s+/g, "_"); }
+
+/** Replace an element's HTML only when it actually changed, and carry over what the user was in
+ *  the middle of: typed text, focus/caret, and open <details>. Without this, every hub event
+ *  re-rendered the whole strip and wiped inputs mid-typing. */
+function setHtml(el, html) {
+  if (el.__html === html) return;
+  const focused = document.activeElement;
+  const focusId = focused && el.contains(focused) ? focused.id : null;
+  const saved = {};
+  for (const f of el.querySelectorAll("input[type=text], textarea")) {
+    if (f.id && f.value) saved[f.id] = { v: f.value, s: f.selectionStart, e: f.selectionEnd };
+  }
+  const openKeys = [...el.querySelectorAll("details[data-key][open]")].map(d => d.dataset.key);
+  el.innerHTML = html;
+  el.__html = html;
+  for (const [id, st] of Object.entries(saved)) {
+    const f = document.getElementById(id);
+    if (f && !f.value) f.value = st.v;
+  }
+  for (const key of openKeys) {
+    const d = el.querySelector(`details[data-key="${CSS.escape(key)}"]`);
+    if (d) d.open = true;
+  }
+  if (focusId) {
+    const f = document.getElementById(focusId);
+    if (f) {
+      f.focus();
+      const st = saved[focusId];
+      if (st && f.setSelectionRange) { try { f.setSelectionRange(st.s, st.e); } catch { /* selects unsupported */ } }
+    }
+  }
+}
+
+// ── Theme (light/dark; defaults to OS preference) ──
+function applyTheme() {
+  const stored = localStorage.getItem("bc-th");
+  if (stored) document.documentElement.dataset.th = stored;
+  const dark = stored ? stored === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+  $("th-btn").textContent = dark ? "☀ LIGHT" : "☾ DARK";
+}
+function toggleTheme() {
+  const dark = document.documentElement.dataset.th
+    ? document.documentElement.dataset.th === "dark"
+    : matchMedia("(prefers-color-scheme: dark)").matches;
+  localStorage.setItem("bc-th", dark ? "light" : "dark");
+  applyTheme();
+}
 
 // ── View router: wizard (no config) → start (config, no session) → session (active) ──
 let cachedConfig = null;
@@ -419,7 +393,7 @@ let currentView = null;
 
 function showOnly(view) {
   for (const v of ["wizard-view", "start-view", "session-view"]) {
-    $(v).style.display = v === view ? "block" : "none";
+    $(v).style.display = v === view ? (v === "session-view" ? "flex" : "block") : "none";
   }
   currentView = view;
 }
@@ -431,132 +405,223 @@ async function route() {
   if (!cachedConfig) cachedConfig = (await api("GET", "/api/config")).config;
   const target = (forceWizard || !cachedConfig || !cachedConfig.agents || cachedConfig.agents.length < 2)
     ? "wizard-view" : "start-view";
-  // Don't re-render an input-bearing view that's already showing (would clobber typing).
-  if (target === currentView) return status;
+  if (target === currentView) return status; // don't clobber typing
   if (target === "wizard-view") await renderWizard(); else renderStartView();
   showOnly(target);
   return status;
 }
 
-// Map agent id → the role name the user gave, so the UI shows "Backend Dev" not "B".
+// Map agent id → the role name the user gave, so the UI shows "BACKEND_DEV" not "B".
 let roleMap = {};
 function roleOf(id) { return roleMap[id] || id; }
 
+let lastStatus = null;
+let refreshing = false;
+let refreshQueued = false;
+
+/** Coalesced: SSE bursts (log/board/status back-to-back) trigger one refresh, not a stampede. */
 async function refresh() {
-  const status = await route();
-  if (!status.active) return; // wizard/start views don't need board data
-  roleMap = {}; for (const a of (status.agents || [])) roleMap[a.id] = a.role;
-  const board = await api("GET", "/api/board");
-  renderSession(status);
-  renderBoard(board, status);
-  renderReview(status, board);
-  renderContracts();
+  if (refreshing) { refreshQueued = true; return; }
+  refreshing = true;
+  try {
+    const status = await route();
+    if (!status.active) { lastStatus = null; return; }
+    lastStatus = status;
+    roleMap = {}; for (const a of (status.agents || [])) roleMap[a.id] = a.role;
+    const board = await api("GET", "/api/board");
+    renderSession(status);
+    renderBoard(board, status);
+    renderReview(status, board);
+    renderContracts();
+    renderChatTargets(status);
+    await syncChat();
+    renderChat(); // typing/reconnect indicator depends on status, not only on new messages
+  } finally {
+    refreshing = false;
+    if (refreshQueued) { refreshQueued = false; void refresh(); }
+  }
 }
+
+const MODESHORT = { "auto-run": "auto", "checkpoint": "chk", "ask": "ask" };
 
 function renderSession(s) {
-  if (!s.active) {
-    $("goal").textContent = "No active session";
-    $("phase").className = "badge phase-idle"; $("phase").textContent = "idle";
-    $("agents").innerHTML = ""; $("mode").textContent = ""; $("stop-btn").disabled = true;
-    return;
-  }
-  $("stop-btn").disabled = false;
-  $("goal").textContent = s.goal;
-  $("phase").className = "badge phase-" + s.phase; $("phase").textContent = s.phase;
-  $("mode").textContent = "mode: " + s.mode + (s.totalTokens ? `   ·   ≈ ${fmtTokens(s.totalTokens)} tokens total` : "");
-  $("agents").innerHTML = (s.agents || []).map(a => `
-    <div class="agent">
-      <span class="dot ${a.registered ? "on" : ""}"></span>
-      <span class="role">${esc(a.role)}</span>
-      <span class="runner">${esc(a.runner)}${a.model ? " · " + esc(a.model) : ""}</span>
-      ${a.tokens ? `<span class="runner" title="tokens used">≈ ${fmtTokens(a.tokens)} tok</span>` : ""}
-      ${a.checkpoint && a.checkpoint.status === "pending" ? '<span class="badge" style="color:var(--accent)">⏸ checkpoint</span>' : ""}
-    </div>`).join("");
+  $("goal").textContent = "→ " + (s.goal || "");
+  $("phase").textContent = s.phase;
+  const chips = (s.agents || []).map(a => {
+    const pause = a.checkpoint && a.checkpoint.status === "pending" ? " ⏸" : "";
+    return `<span class="chip"><span class="${a.registered ? "on" : ""}">●</span> ${esc(caps(a.role))}·${MODESHORT[s.mode] || s.mode}${pause}</span>`;
+  });
+  if (s.totalTokens) chips.push(`<span class="chip">≈ ${fmtTokens(s.totalTokens)} TOK</span>`);
+  setHtml($("agents"), chips.join(""));
+  renderAskToggle(s);
+  renderAlert(s);
 }
 
-function renderBoard(board, status) {
-  const items = board.items || [];
-  boardCache = items;
-  if (status.phase === "planning") {
-    $("board").innerHTML = `<div class="muted">Planning — ${board.proposedBoard ? board.proposedBoard.length : 0} proposed items (see review above).</div>`;
+// Surface a launch/registration failure loudly — otherwise a missing agent silently stalls planning.
+function renderAlert(s) {
+  const el = $("alert");
+  if (s.launchError) {
+    el.style.display = "block";
+    setHtml(el, `⚠ ${esc(s.launchError)}<span class="fix">Restart the session, or run <b>duo resume &lt;agent&gt;</b> to relaunch the missing agent.</span>`);
     return;
   }
-  if (!items.length) { $("board").innerHTML = '<div class="empty">empty</div>'; return; }
-  $("board").innerHTML = items.map(i => `
-    <div class="item">
-      <span class="st" style="color:${STCOLOR[i.status]}">${ST[i.status] || "?"}</span>
-      <span>${esc(i.title)}${i.paths && i.paths.length ? `<span class="paths">${esc(i.paths.join(", "))}</span>` : ""}</span>
-      <span class="who">${esc(roleOf(i.claimedBy || i.owner) || "—")}</span>
+  // A reconnecting agent (chat wake / crash resume) is expected to be unregistered — don't alarm.
+  const unreg = (s.agents || [])
+    .filter(a => !a.registered && !(a.activity && a.activity.state === "reconnecting"))
+    .map(a => caps(roleOf(a.id)));
+  if (unreg.length && s.phase !== "done") {
+    el.style.display = "block";
+    setHtml(el, `⚠ WAITING FOR ${esc(unreg.join(", "))} TO CONNECT<span class="fix">If this persists, the agent's MCP may not have attached — restart the session or check <b>duo doctor</b>.</span>`);
+    return;
+  }
+  el.style.display = "none";
+  setHtml(el, "");
+}
+
+// ── Ask mode: a live chat toggle, not a pre-start choice ──
+let liveMode = null;
+let lastNonAsk = "auto-run";
+function renderAskToggle(s) {
+  liveMode = s.mode;
+  if (s.mode !== "ask") lastNonAsk = s.mode;
+  const on = s.mode === "ask";
+  const b = $("ask-toggle");
+  b.textContent = "ASK " + (on ? "●" : "○");
+  b.classList.toggle("on", on);
+  b.title = on
+    ? "Ask mode ON — agents confirm each step with you in chat. Click to turn off."
+    : "Ask mode — agents confirm each significant step with you in chat before acting. Click to turn on.";
+}
+async function toggleAsk() {
+  const target = liveMode === "ask" ? lastNonAsk : "ask";
+  const res = await api("POST", "/api/mode", { mode: target });
+  if (res.error) alert("Cannot change mode: " + res.error);
+}
+
+const ST = { open: "○", claimed: "◐", done: "✓", "out-of-scope": "⊘" };
+
+// ── Task board: a strip button + modal (the board no longer squeezes the contracts rail) ──
+let boardState = { items: [], planning: false, proposedCount: 0 };
+let boardModalOpen = false;
+
+function renderBoard(board, status) {
+  boardState = {
+    items: board.items || [],
+    planning: status.phase === "planning",
+    proposedCount: board.proposedBoard ? board.proposedBoard.length : 0,
+  };
+  const done = boardState.items.filter(i => i.status === "done").length;
+  $("board-vlabel").textContent = boardState.planning
+    ? "TASKS · PLANNING"
+    : `TASKS · ${done}/${boardState.items.length}`;
+  if (boardModalOpen) renderBoardList();
+}
+
+function boardListHtml() {
+  if (boardState.planning) {
+    return `<div class="empty" style="padding:18px 20px">PLANNING — ${boardState.proposedCount} PROPOSED ITEMS (SEE THE PLAN REVIEW STRIP ABOVE THE CHAT).</div>`;
+  }
+  if (!boardState.items.length) return '<div class="empty" style="padding:18px 20px">EMPTY</div>';
+  return boardState.items.map(i => `
+    <div class="task" style="padding:12px 20px;margin:0;border-top:1px solid var(--chip)">
+      <span class="st ${i.status === "done" ? "done" : "dim"}">${ST[i.status] || "?"}</span>
+      <div>
+        <div class="title">${esc(i.title)}</div>
+        ${i.paths && i.paths.length ? `<div class="paths">${esc(i.paths.join(" · "))}</div>` : ""}
+        <div class="paths">${esc(caps(roleOf(i.claimedBy || i.owner) || "—"))}</div>
+      </div>
     </div>`).join("");
 }
+function renderBoardList() {
+  const el = document.getElementById("board-list");
+  if (el) setHtml(el, boardListHtml());
+}
+function openBoardModal() {
+  boardModalOpen = true;
+  $("board-modal").innerHTML = `
+    <div class="modal-bg" onclick="if(event.target===this)closeBoardModal()">
+      <div class="modal">
+        <div class="modal-head">TASK BOARD</div>
+        <div class="modal-body" id="board-list"></div>
+        <div class="modal-foot"><button class="btn-line" onclick="closeBoardModal()">CLOSE</button></div>
+      </div>
+    </div>`;
+  renderBoardList();
+}
+function closeBoardModal() { boardModalOpen = false; $("board-modal").innerHTML = ""; }
 
 function renderReview(status, board) {
   const el = $("review");
-  // Plan approval
   if (status.phase === "planning") {
     const proposed = board.proposedBoard || [];
-    const unassigned = (board.plan && board.plan.unassigned) || [];
     if (!proposed.length) {
+      // The merged board only appears once EVERY agent posts. Show per-agent progress so a
+      // half-posted plan (or a missing agent) isn't invisible.
+      const posted = (board.plan && board.plan.posted) || [];
+      const rows = posted.map(p => {
+        const agent = (status.agents || []).find(a => a.id === p.agentId) || {};
+        const state = p.posted ? "✓ POSTED" : (agent.registered ? "… PLANNING" : "… NOT CONNECTED");
+        const sum = p.posted && p.summary ? `<div class="quote" style="margin-top:6px">${esc(p.summary)}</div>` : "";
+        return `<div class="postrow"><span class="who mono" style="color:var(--acc)">${esc(caps(roleOf(p.agentId)))}</span><span class="state">${state}</span>${sum}</div>`;
+      }).join("");
+      const waitingOn = posted.filter(p => !p.posted).map(p => caps(roleOf(p.agentId)));
       el.style.display = "block";
-      el.innerHTML = `<h2>Plan review</h2><div class="muted">Waiting for agents to post their plans…</div>`;
+      setHtml(el, `<span class="sec-label">[ PLAN REVIEW ]</span>
+        ${rows || '<div class="empty" style="margin-top:10px">WAITING FOR AGENTS TO POST THEIR PLANS…</div>'}
+        ${waitingOn.length ? `<div class="empty" style="margin-top:12px">THE FULL PLAN APPEARS ONCE EVERY AGENT HAS POSTED — WAITING ON ${esc(waitingOn.join(", "))}.</div>` : ""}`);
       return;
     }
     const summaries = (board.plan && board.plan.summaries) || {};
     const summaryHtml = Object.entries(summaries).filter(([, v]) => v).map(([id, v]) =>
-      `<div class="plan-summary"><span class="who">${esc(roleOf(id))}</span> — ${esc(v)}</div>`).join("")
-      || `<div class="muted" style="font-size:13px">The agents proposed ${proposed.length} tasks (open the list below for detail).</div>`;
-    // The app assigns owners automatically — the plan just shows who will do what. No dropdowns.
+      `<div class="quote"><span class="who">${esc(caps(roleOf(id)))}</span>${esc(v)}</div>`).join("")
+      || `<div class="empty" style="margin-top:10px">THE AGENTS PROPOSED ${proposed.length} TASKS (OPEN THE LIST BELOW).</div>`;
     const taskList = proposed.map(i =>
-      `<div class="item">
-         <span>${esc(i.title)}${i.paths && i.paths.length ? `<span class="paths">${esc(i.paths.join(", "))}</span>` : ""}</span>
-         <span class="who">${i.owner ? esc(roleOf(i.owner)) : "auto"}</span>
+      `<div class="task" style="margin-top:10px">
+         <span class="st dim">○</span>
+         <div><div class="title">${esc(i.title)}</div>
+         <div class="paths">${i.owner ? esc(caps(roleOf(i.owner))) : "AUTO"}${i.paths && i.paths.length ? " · " + esc(i.paths.join(" · ")) : ""}</div></div>
        </div>`).join("");
     el.style.display = "block";
-    el.innerHTML = `<h2>Plan review — approve to start</h2>
+    setHtml(el, `<span class="sec-label">[ PLAN REVIEW — APPROVE TO START ]</span>
       ${summaryHtml}
-      <details style="margin-top:10px">
-        <summary style="cursor:pointer;font-size:13px;color:var(--dim)">${proposed.length} tasks ▸</summary>
-        <div style="margin-top:6px">${taskList}</div>
+      <details data-key="plan-tasks" style="margin-top:12px">
+        <summary class="mono" style="cursor:pointer;font-size:12px;color:var(--mut)">${proposed.length} TASKS ▸</summary>
+        ${taskList}
       </details>
-      <div class="row" style="margin-top:14px">
-        <button class="primary" onclick="approvePlan()">Approve &amp; start</button>
-        <input type="text" id="plan-fb" placeholder="…or tell them to change something" />
-        <button onclick="planFeedback()">Send feedback</button>
-      </div>`;
+      <div class="row">
+        <button class="btn-acc" onclick="approvePlan()">APPROVE &amp; START →</button>
+        <input type="text" id="plan-fb" placeholder="> …or tell them to change something_" onkeydown="if(event.key==='Enter')planFeedback()" />
+        <button class="btn-line" onclick="planFeedback()">SEND FEEDBACK</button>
+      </div>`);
     return;
   }
-  // Checkpoints
   const pending = (status.agents || []).filter(a => a.checkpoint && a.checkpoint.status === "pending");
   notifyPending(status, pending);
   if (pending.length) {
     el.style.display = "block";
-    el.className = "panel checkpoint";
-    el.innerHTML = `<h2>${pending.some(a => a.checkpoint.kind === "question") ? "Waiting on you" : "Checkpoints"}</h2>` + pending.map(a => {
+    setHtml(el, `<span class="sec-label">[ WAITING ON YOU ]</span>` + pending.map(a => {
       const cp = a.checkpoint;
       const isQ = cp.kind === "question";
-      const header = isQ
-        ? `<div><strong>${esc(roleOf(a.id))} asks:</strong> ${esc(cp.summary)}</div>`
-        : `<div><strong>${esc(roleOf(a.id))} finished:</strong> ${esc(cp.summary)}</div>
-           <div class="why">Wants to do next: ${esc(cp.nextStep)}</div>`;
-      const why = cp.why ? `<div class="why"><b>Why it's asking:</b> ${esc(cp.why)}</div>` : "";
-      const impact = cp.impact ? `<div class="why"><b>If you approve:</b> ${esc(cp.impact)}</div>` : "";
+      const head = isQ
+        ? `<div class="quote"><span class="who">${esc(caps(roleOf(a.id)))} ASKS</span>${esc(cp.summary)}</div>`
+        : `<div class="quote"><span class="who">${esc(caps(roleOf(a.id)))} FINISHED</span>${esc(cp.summary)}<br><span class="mono" style="font-size:12px;color:var(--mut)">NEXT: ${esc(cp.nextStep)}</span></div>`;
+      const why = cp.why ? `<div class="empty" style="margin-top:6px">WHY: ${esc(cp.why)}</div>` : "";
+      const impact = cp.impact ? `<div class="empty" style="margin-top:4px">IF YOU APPROVE: ${esc(cp.impact)}</div>` : "";
       const buttons = isQ
-        ? `<input type="text" id="cp-fb-${esc(a.id)}" placeholder="your answer" style="flex:1" />
-           <button class="primary" onclick="resolveCp('${esc(a.id)}', false)">Send answer</button>`
-        : `<button class="primary" onclick="resolveCp('${esc(a.id)}', true)">Approve</button>
-           <input type="text" id="cp-fb-${esc(a.id)}" placeholder="ask a question or give feedback" style="flex:1" />
-           <button onclick="resolveCp('${esc(a.id)}', false)">Send</button>`;
-      return `<div style="margin-bottom:12px">
-        ${header}${why}${impact}
-        <div class="row" style="margin-top:8px">${buttons}</div>
-      </div>`;
-    }).join("");
+        ? `<input type="text" id="cp-fb-${esc(a.id)}" placeholder="> your answer_" onkeydown="if(event.key==='Enter')resolveCp('${esc(a.id)}', false)" />
+           <button class="btn-acc" onclick="resolveCp('${esc(a.id)}', false)">SEND ANSWER →</button>`
+        : `<button class="btn-acc" onclick="resolveCp('${esc(a.id)}', true)">APPROVE →</button>
+           <input type="text" id="cp-fb-${esc(a.id)}" placeholder="> ask a question or give feedback_" onkeydown="if(event.key==='Enter')resolveCp('${esc(a.id)}', false)" />
+           <button class="btn-line" onclick="resolveCp('${esc(a.id)}', false)">SEND</button>`;
+      return `<div style="margin-top:12px">${head}${why}${impact}<div class="row">${buttons}</div></div>`;
+    }).join(""));
     return;
   }
-  el.className = "panel review"; el.style.display = "none";
+  el.style.display = "none";
+  setHtml(el, "");
 }
 
-// Minimal line-level diff: mark lines added vs the previous revision's content.
+// Minimal line-level diff vs the previous revision.
 function diffContent(prev, cur) {
   const prevLines = new Set((prev || "").split("\n").map(l => l.trim()));
   return cur.split("\n").map(line => {
@@ -569,40 +634,184 @@ function diffContent(prev, cur) {
 async function renderContracts() {
   const data = await api("GET", "/api/contracts").catch(() => ({ contracts: [] }));
   const cs = data.contracts || [];
-  if (!cs.length) { $("contracts").innerHTML = '<div class="empty">none yet</div>'; return; }
-  // Show the latest revision per service as the headline; keep prior revs for the diff.
+  const services = new Set(cs.map(c => c.service)).size;
+  $("contract-count").textContent = services ? `· ${services}` : "";
+  if (!cs.length) { setHtml($("contracts"), '<div class="empty">NONE YET — AGENTS POST INTERFACE AGREEMENTS HERE THE MOMENT THEY DECIDE THEM.</div>'); return; }
   const bySvc = {};
   for (const c of cs) (bySvc[c.service] = bySvc[c.service] || []).push(c);
-  const cards = Object.entries(bySvc).map(([svc, revs]) => {
+  setHtml($("contracts"), Object.entries(bySvc).map(([svc, revs]) => {
     revs.sort((a, b) => a.revision - b.revision);
     const latest = revs[revs.length - 1];
     const prev = revs.length > 1 ? revs[revs.length - 2] : null;
     const body = prev ? diffContent(prev.content, latest.content) : esc(latest.content);
     return `
-    <details class="contract">
+    <details class="contract" data-key="${esc(svc)}">
       <summary>
-        <span class="headline">${esc(latest.summary || svc)}</span>
-        <span class="svc">— ${esc(svc)} rev${latest.revision} · agent ${esc(latest.agentId)}${prev ? " · diff vs rev" + prev.revision : ""}</span>
+        <div class="quote">${esc(latest.summary || svc)}</div>
+        <div class="cmeta">${esc(svc)} rev${latest.revision} · agent ${esc(latest.agentId)}${prev ? " · diff vs rev" + prev.revision : ""}</div>
       </summary>
       <pre>${body}</pre>
     </details>`;
-  });
-  $("contracts").innerHTML = cards.join("");
+  }).join(""));
 }
 
+// ── Chat (user ↔ agents) ──
+const chatMsgs = [];
+let chatLastId = 0;
+const CHAT_EMPTY = '<div class="empty">TALK WITH THE AGENTS HERE — THEY REPORT WHAT THEY DID; YOU SEND FOLLOW-UP INSTRUCTIONS (EVEN AFTER THEY FINISH).</div>';
+
+function appendChat(msg) {
+  if (!msg || typeof msg.id !== "number" || msg.id <= chatLastId) return;
+  chatLastId = msg.id;
+  chatMsgs.push(msg);
+  if (chatMsgs.length > 400) chatMsgs.shift();
+  renderChat();
+}
+
+async function syncChat() {
+  const data = await api("GET", "/api/chat?since_id=" + chatLastId).catch(() => null);
+  if (!data || !Array.isArray(data.messages)) return;
+  if (data.chatVersion < chatLastId) {
+    chatMsgs.length = 0; chatLastId = 0;
+    setHtml($("chat"), CHAT_EMPTY);
+    return syncChat();
+  }
+  for (const m of data.messages) appendChat(m);
+}
+
+/** Live-state rows under the messages: "RECONNECTING…" while an agent is being relaunched to
+ *  answer, "REPLYING…" while a running agent still owes the user an answer. */
+function typingRows() {
+  if (!lastStatus || !Array.isArray(lastStatus.agents)) return "";
+  return lastStatus.agents.map(a => {
+    const act = a.activity;
+    if (!act) return "";
+    // The user is owed a reply when their last message to this agent is newer than its last reply.
+    let lastUser = 0, lastReply = 0;
+    for (const m of chatMsgs) {
+      if (m.from === "user" && (m.to === "all" || m.to === a.id)) lastUser = m.id;
+      if (m.from === a.id) lastReply = m.id;
+    }
+    const awaiting = lastUser > lastReply;
+    let label = null;
+    if (act.state === "reconnecting") label = String(act.detail || "reconnecting").toUpperCase();
+    else if (act.state === "starting" && awaiting) label = "STARTING UP";
+    else if (act.state === "working" && awaiting) label = "REPLYING";
+    if (!label) return "";
+    return `<div class="typing"><span class="who">${esc(caps(roleOf(a.id)))}</span><span>${esc(label)}</span><span class="dots"><i></i><i></i><i></i></span></div>`;
+  }).join("");
+}
+
+function renderChat() {
+  const el = $("chat");
+  const typing = typingRows();
+  if (!chatMsgs.length && !typing) { setHtml(el, CHAT_EMPTY); return; }
+  const html = chatMsgs.map(m => {
+    const time = esc((m.timestamp || "").slice(11, 16));
+    if (m.from === "user") {
+      const to = m.to === "all" ? "ALL AGENTS" : caps(roleOf(m.to));
+      return `<div class="msg-user"><div class="meta">YOU → ${esc(to)} · ${time}</div><div class="bub">${esc(m.text)}</div></div>`;
+    }
+    return `<div class="msg-agent">
+      <div class="head"><span class="who">${esc(caps(roleOf(m.from)))}</span><span class="time">${time}</span></div>
+      <div class="body">${esc(m.text)}</div>
+    </div>`;
+  }).join("") + typing;
+  if (el.__html === html) return;
+  // Don't yank the user down if they scrolled up to read something.
+  const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+  setHtml(el, html);
+  if (nearBottom) el.scrollTop = el.scrollHeight;
+}
+
+function renderChatTargets(status) {
+  const sel = $("chat-to");
+  const ids = (status.agents || []).map(a => a.id);
+  const want = "all," + ids.join(",");
+  if (sel.dataset.ids === want) return;
+  sel.dataset.ids = want;
+  sel.innerHTML = `<option value="all">ALL ▾</option>` +
+    ids.map(id => `<option value="${esc(id)}">${esc(caps(roleOf(id)))} ▾</option>`).join("");
+}
+
+async function sendChat() {
+  const input = $("chat-input");
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = "";
+  const res = await api("POST", "/api/chat", { text, to: $("chat-to").value });
+  if (res.ok === true && res.message) { appendChat(res.message); void refresh(); }
+  else if (res.error) { alert("Could not send: " + res.error); input.value = text; }
+}
+
+// ── Activity: a strip button + modal (raw agent stream stays out of the way) ──
 const logLines = [];
-function pushLog(agentId, message) {
-  logLines.push({ agentId, message });
-  if (logLines.length > 300) logLines.shift();
-  $("log").innerHTML = logLines.slice(-120).map(l =>
-    `<div class="line"><span class="who">[${esc(l.agentId)}]</span> ${esc(l.message)}</div>`).join("");
-  $("log").scrollTop = $("log").scrollHeight;
+let logTotal = 0;
+let fullLogOpen = false;
+
+function kindOf(m) {
+  if (m.startsWith("· →")) return "TOOL";
+  if (m.startsWith("· ✻")) return "THINK";
+  if (m.startsWith("·")) return "SAYS";
+  if (m.startsWith("📋")) return "POST";
+  if (m.includes("[error]")) return "ERR";
+  if (/^(\[|launched|crashed|waking|finished|all agents)/.test(m)) return "SYS";
+  return "LOG";
+}
+function detailOf(m) { return m.replace(/^· (→ |✻ )?/, "").replace(/^📋 /, ""); }
+
+function pushLog(agentId, message, timestamp) {
+  logLines.push({ agentId, message, time: (timestamp || "").slice(11, 19) });
+  if (logLines.length > 400) logLines.shift();
+  logTotal++;
+  updateActivityUi();
+}
+
+function evHtml(l) {
+  return `<div class="ev">
+    <div class="l1"><span class="t">${esc(l.time || "")}</span><span class="k">${kindOf(l.message)}</span><span class="a">${esc(caps(roleOf(l.agentId)))}</span></div>
+    <div class="d">${esc(detailOf(l.message))}</div>
+  </div>`;
+}
+
+function updateActivityUi() {
+  const n = logTotal > 999 ? "999+" : String(logTotal);
+  $("act-vlabel").textContent = `ACTIVITY · ${n}`;
+  if (fullLogOpen) {
+    const el = document.getElementById("full-log");
+    if (el) {
+      const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+      setHtml(el, logLines.map(evHtml).join(""));
+      if (nearBottom) el.scrollTop = el.scrollHeight;
+    }
+  }
+}
+
+function openActivityModal() {
+  fullLogOpen = true;
+  $("activity-modal").innerHTML = `
+    <div class="modal-bg" onclick="if(event.target===this)closeActivityModal()">
+      <div class="modal">
+        <div class="modal-head">ACTIVITY — RAW AGENT STREAM</div>
+        <div class="modal-body" id="full-log"></div>
+        <div class="modal-foot"><button class="btn-line" onclick="closeActivityModal()">CLOSE</button></div>
+      </div>
+    </div>`;
+  updateActivityUi();
+}
+function closeActivityModal() { fullLogOpen = false; $("activity-modal").innerHTML = ""; }
+
+// Backfill this page load with the hub's log history (SSE only carries new lines).
+async function seedLogs() {
+  const data = await api("GET", "/api/logs").catch(() => null);
+  if (!Array.isArray(data)) return;
+  for (const l of data) pushLog(l.agentId, l.message, l.timestamp);
 }
 
 // ── Setup wizard ──
 async function renderWizard() {
   if (!cachedRunners) cachedRunners = ((await api("GET", "/api/runners/detect")).runners || [])
-    .filter(r => r.runner !== "cursor-ide"); // not offered in the GUI wizard
+    .filter(r => r.runner !== "cursor-ide");
   const cfg = cachedConfig || {};
   const agents = (cfg.agents && cfg.agents.length >= 2) ? cfg.agents : [
     { id: "A", workspace: "", runner: "claude-code", role: "Frontend" },
@@ -612,13 +821,13 @@ async function renderWizard() {
     `<option value="${esc(r.runner)}" ${r.runner === sel ? "selected" : ""}>${esc(r.runner)} ${r.ok ? "✓" : "✗"}</option>`).join("");
   $("agent-setups").innerHTML = agents.map((a, i) => `
     <div class="agent-setup">
-      <h3>Agent ${esc(a.id)}</h3>
+      <h3>AGENT ${esc(a.id)}</h3>
       <label>Project folder</label>
       <div class="field-row">
         <input type="text" id="w-ws-${i}" value="${esc(a.workspace)}" placeholder="/path/to/project">
-        <button onclick="browseFolder(${i})">Browse…</button>
+        <button class="btn-line" onclick="browseFolder(${i})">BROWSE…</button>
       </div>
-      <div class="field-row" style="gap:12px">
+      <div class="field-row" style="gap:14px">
         <div style="flex:1">
           <label>Runner (which AI)</label>
           <select id="w-runner-${i}" onchange="loadModels(${i})" style="width:100%">${runnerOpts(a.runner)}</select>
@@ -629,13 +838,13 @@ async function renderWizard() {
         </div>
       </div>
       <label>Role</label>
-      <input type="text" id="w-role-${i}" value="${esc(a.role)}" placeholder="e.g. Frontend">
+      <input type="text" id="w-role-${i}" value="${esc(a.role)}" placeholder="e.g. Frontend" style="width:100%">
     </div>`).join("");
   for (let i = 0; i < agents.length; i++) await loadModels(i, agents[i].model);
   if (cfg.preset) $("w-preset").value = cfg.preset;
   if (cfg.mode) $("w-mode").value = cfg.mode;
   const bad = cachedRunners.filter(r => !r.ok && r.runner !== "cursor-ide");
-  $("wizard-err").textContent = bad.length ? `Note: ${bad.map(r => r.runner).join(", ")} not detected — install them or use cursor-ide.` : "";
+  $("wizard-err").textContent = bad.length ? `NOTE: ${bad.map(r => r.runner).join(", ")} not detected — install them or use cursor-ide.` : "";
 }
 
 const modelCache = {};
@@ -654,7 +863,7 @@ async function saveWizard() {
     model: $(`w-model-${i}`).value || undefined,
     role: $(`w-role-${i}`).value.trim() || (i === 0 ? "Frontend" : "Backend"),
   }));
-  if (agents.some(a => !a.workspace)) { $("wizard-err").textContent = "Both agents need a project folder."; return; }
+  if (agents.some(a => !a.workspace)) { $("wizard-err").textContent = "BOTH AGENTS NEED A PROJECT FOLDER."; return; }
   const config = {
     agents,
     preset: $("w-preset").value,
@@ -663,26 +872,26 @@ async function saveWizard() {
     claudePermissionMode: (cachedConfig && cachedConfig.claudePermissionMode) || "acceptEdits",
   };
   const res = await api("PUT", "/api/config", config);
-  if (res.ok === false) { $("wizard-err").textContent = res.error || "Could not save."; return; }
+  if (res.ok === false) { $("wizard-err").textContent = res.error || "COULD NOT SAVE."; return; }
   cachedConfig = config; forceWizard = false;
   route();
 }
 
 function renderStartView() {
   const a = cachedConfig.agents;
-  $("start-agents").innerHTML = a.map(x => `<b>${esc(x.role)}</b> — ${esc(x.runner)}${x.model ? " · " + esc(x.model) : ""} — ${esc(x.workspace)}`).join("<br>");
+  $("start-agents").innerHTML = a.map(x => `<b>${esc(caps(x.role))}</b> — ${esc(x.runner)}${x.model ? " · " + esc(x.model) : ""} — ${esc(x.workspace)}`).join("<br>");
   const cp = [...document.querySelectorAll('input[name="s-mode"]')].find(r => r.value === (cachedConfig.mode || "checkpoint"));
   if (cp) cp.checked = true;
 }
 
 async function startSession() {
   const goal = $("s-goal").value.trim();
-  if (!goal) { $("start-err").textContent = "Describe what the agents should build."; return; }
+  if (!goal) { $("start-err").textContent = "DESCRIBE WHAT THE AGENTS SHOULD BUILD."; return; }
   const mode = document.querySelector('input[name="s-mode"]:checked').value;
   const plan = $("s-plan").checked;
-  $("start-err").textContent = "Starting…";
+  $("start-err").textContent = "STARTING…";
   const res = await api("POST", "/api/session/start", { goal, plan, mode });
-  if (res.ok !== true) { $("start-err").textContent = res.error || "Could not start."; return; }
+  if (res.ok !== true) { $("start-err").textContent = res.error || "COULD NOT START."; return; }
   $("start-err").textContent = "";
   refresh();
 }
@@ -708,16 +917,16 @@ async function openFolderModal(startPath) {
 function renderFolderModal(data) {
   $("folder-modal").innerHTML = `
     <div class="modal-bg" onclick="if(event.target===this)closeFolderModal()">
-      <div class="modal">
-        <div class="modal-head">Choose a project folder</div>
+      <div class="modal" style="width:min(560px,92vw)">
+        <div class="modal-head">CHOOSE A PROJECT FOLDER</div>
         <div class="crumb">${esc(data.path)}</div>
-        <div class="dir-list">
-          ${data.parent ? `<div class="dir-item" onclick="openFolderModal('${esc(data.parent)}')" style="opacity:.8">.. (up)</div>` : ""}
-          ${(data.dirs || []).map(d => `<div class="dir-item" onclick="openFolderModal('${esc(joinPath(data.path, d))}')">${esc(d)}</div>`).join("") || '<div class="empty" style="padding:10px">no subfolders</div>'}
+        <div class="modal-body">
+          ${data.parent ? `<div class="dir-item" onclick="openFolderModal('${esc(data.parent)}')" style="opacity:.8">.. (UP)</div>` : ""}
+          ${(data.dirs || []).map(d => `<div class="dir-item" onclick="openFolderModal('${esc(joinPath(data.path, d))}')">${esc(d)}/</div>`).join("") || '<div class="empty" style="padding:14px 20px">NO SUBFOLDERS</div>'}
         </div>
         <div class="modal-foot">
-          <button onclick="closeFolderModal()">Cancel</button>
-          <button class="primary" onclick="chooseFolder('${esc(data.path)}')">Use this folder</button>
+          <button class="btn-line" onclick="closeFolderModal()">CANCEL</button>
+          <button class="btn-acc" onclick="chooseFolder('${esc(data.path)}')">USE THIS FOLDER →</button>
         </div>
       </div>
     </div>`;
@@ -730,7 +939,6 @@ function closeFolderModal() { $("folder-modal").innerHTML = ""; folderTarget = n
 
 // ── Actions ──
 async function approvePlan() {
-  // The hub auto-assigns owners — approval is one click.
   const res = await api("POST", "/api/plan/approve", {});
   if (res.error) alert("Cannot approve: " + res.error);
 }
@@ -768,20 +976,21 @@ function notifyPending(status, pending) {
 // ── Live event stream with reconnect ──
 function connect() {
   const es = new EventSource("/api/updates");
-  es.onopen = () => { $("conn").className = "live"; $("conn").textContent = "live"; };
-  es.onerror = () => { $("conn").className = "down"; $("conn").textContent = "reconnecting…"; };
+  es.onopen = () => { $("conn").className = "hdr-btn live"; $("conn-txt").textContent = "LIVE"; };
+  es.onerror = () => { $("conn").className = "hdr-btn"; $("conn-txt").textContent = "RECONNECTING…"; };
   es.onmessage = (e) => {
     let ev; try { ev = JSON.parse(e.data); } catch { return; }
-    if (ev.type === "log" && ev.data && ev.data.message) pushLog(ev.data.agentId, ev.data.message);
-    // Any structural change → re-sync from the authoritative endpoints (versioned server-side).
+    if (ev.type === "log" && ev.data && ev.data.message) pushLog(ev.data.agentId, ev.data.message, ev.data.timestamp);
+    if (ev.type === "chat" && ev.data) appendChat(ev.data);
     if (["board", "phase", "plan", "checkpoint", "registration", "status"].includes(ev.type)) refresh();
   };
 }
 
+applyTheme();
 refresh();
+seedLogs();
 connect();
 setInterval(refresh, 15000); // safety re-sync against missed events / sleep
 </script>
-  </div><!-- /.shell -->
 </body>
 </html>

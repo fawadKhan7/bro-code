@@ -76,6 +76,15 @@ export class Human {
   releaseAgent(agentId: string) {
     return this.post("/api/agent/release", { agent_id: agentId });
   }
+  sendChat(text: string, to?: string) {
+    return this.post("/api/chat", { text, to });
+  }
+  setMode(mode: string) {
+    return this.post("/api/mode", { mode });
+  }
+  getChat(sinceId?: number) {
+    return this.get(`/api/chat${sinceId ? `?since_id=${sinceId}` : ""}`);
+  }
   stop() {
     return this.post("/api/stop", {});
   }

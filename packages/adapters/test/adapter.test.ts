@@ -5,7 +5,7 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import { afterEach, describe, expect, it } from "vitest";
-import { mergeMcpConfig, summarizeClaudeStreamLine, makeLineReader, extractUsageTokens } from "../src/common.js";
+import { mergeMcpConfig, summarizeClaudeStreamEvents, summarizeClaudeStreamLine, makeLineReader, extractUsageTokens, extractSessionId } from "../src/common.js";
 import { ClaudeCodeAdapter, buildClaudeArgs } from "../src/claudeCode.js";
 import { getAdapter, hasAdapter, knownRunners } from "../src/registry.js";
 import type { LaunchContext } from "../src/types.js";
@@ -75,6 +75,27 @@ describe("summarizeClaudeStreamLine", () => {
     expect(summarizeClaudeStreamLine("not json")).toBeNull();
     expect(summarizeClaudeStreamLine("")).toBeNull();
   });
+
+  it("summarizes every block of a multi-block message (text + tool_use)", () => {
+    const line = JSON.stringify({
+      type: "assistant",
+      message: {
+        content: [
+          { type: "text", text: "Posting my plan now." },
+          { type: "tool_use", name: "post_plan" },
+        ],
+      },
+    });
+    expect(summarizeClaudeStreamEvents(line)).toEqual(["Posting my plan now.", "→ post_plan"]);
+  });
+
+  it("does not log tool_result blocks from user events", () => {
+    const line = JSON.stringify({
+      type: "user",
+      message: { content: [{ type: "tool_result", content: "huge output" }] },
+    });
+    expect(summarizeClaudeStreamEvents(line)).toEqual([]);
+  });
 });
 
 describe("makeLineReader", () => {
@@ -106,6 +127,36 @@ describe("extractUsageTokens", () => {
   it("ignores lines without usage", () => {
     expect(extractUsageTokens(JSON.stringify({ type: "assistant" }))).toBeNull();
     expect(extractUsageTokens("not json")).toBeNull();
+  });
+});
+
+describe("extractSessionId", () => {
+  it("pulls session_id from init and result events", () => {
+    const init = JSON.stringify({ type: "system", subtype: "init", session_id: "abc-123" });
+    expect(extractSessionId(init)).toBe("abc-123");
+    const result = JSON.stringify({ type: "result", subtype: "success", session_id: "abc-123" });
+    expect(extractSessionId(result)).toBe("abc-123");
+  });
+  it("ignores lines without one", () => {
+    expect(extractSessionId(JSON.stringify({ type: "assistant" }))).toBeNull();
+    expect(extractSessionId("not json session_id")).toBeNull();
+    expect(extractSessionId("")).toBeNull();
+  });
+});
+
+describe("session resume flag", () => {
+  it("buildClaudeArgs appends --resume only when a session ref is given", () => {
+    const base: LaunchContext = {
+      agent: { id: "A", workspace: "/w", runner: "claude-code", role: "R" },
+      kickoffPrompt: "go",
+      hubUrl: "http://127.0.0.1:3131",
+      toolPrefix: "duo",
+    };
+    expect(buildClaudeArgs(base, "acceptEdits")).not.toContain("--resume");
+    const resumed = buildClaudeArgs({ ...base, resumeSessionRef: "abc-123" }, "acceptEdits");
+    const i = resumed.indexOf("--resume");
+    expect(i).toBeGreaterThan(-1);
+    expect(resumed[i + 1]).toBe("abc-123");
   });
 });
 

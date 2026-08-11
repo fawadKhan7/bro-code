@@ -15,7 +15,7 @@ import { spawn, spawnSync, type ChildProcess } from "child_process";
 import { EventEmitter } from "events";
 import * as path from "path";
 import type { AgentAdapter, AgentHandle, DetectResult, LaunchContext } from "./types.js";
-import { detectBinary, extractUsageTokens, makeLineReader, mergeMcpConfig, summarizeCursorStreamLine } from "./common.js";
+import { detectBinary, extractSessionId, extractUsageTokens, makeLineReader, makeCursorStreamSummarizer, mergeMcpConfig } from "./common.js";
 
 function cursorBin(): string {
   return process.env.DUO_CURSOR_BIN ?? "cursor-agent";
@@ -32,11 +32,13 @@ class CursorProcessHandle implements AgentHandle {
   private _exited = false;
 
   constructor(readonly agentId: string, private child: ChildProcess) {
+    const summarizer = makeCursorStreamSummarizer();
     const onOut = makeLineReader((line) => {
       const tokens = extractUsageTokens(line);
       if (tokens) this.events.emit("usage", tokens);
-      const summary = summarizeCursorStreamLine(line);
-      if (summary) this.events.emit("output", summary);
+      const sessionId = extractSessionId(line);
+      if (sessionId) this.events.emit("session", sessionId);
+      for (const summary of summarizer.feed(line)) this.events.emit("output", summary);
     });
     child.stdout?.on("data", onOut);
     child.stderr?.on("data", (chunk: Buffer) => {
@@ -46,6 +48,7 @@ class CursorProcessHandle implements AgentHandle {
     child.on("error", (err) => this.events.emit("error", err));
     child.on("exit", (code) => {
       this._exited = true;
+      for (const summary of summarizer.flush()) this.events.emit("output", summary);
       this.events.emit("exit", { code });
     });
   }
@@ -104,6 +107,8 @@ export class CursorCliAdapter implements AgentAdapter {
     ];
     const model = ctx.agent.model || (ctx.runnerOptions?.model as string | undefined);
     if (model) args.push("--model", model);
+    // Chat wake: resume the agent's previous cursor session so it remembers its earlier work.
+    if (ctx.resumeSessionRef) args.push("--resume", ctx.resumeSessionRef);
     const child = spawn(cursorBin(), args, {
       cwd: ctx.agent.workspace,
       stdio: ["ignore", "pipe", "pipe"],
